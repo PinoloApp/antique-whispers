@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+    match /databases/{database}/documents {
+        
+        // Funkcija koja proverava da li je korisnik ulogovan i ima admin ulogu
+        function isAdmin() {
+            return request.auth != null && request.auth.token.role == "admin";
+        }
+
+        // Users collection
+        match /users/{uid} {
+            // Korisnik može čitati i pisati samo svoj dokument
+            allow read, write: if request.auth != null && request.auth.uid == uid;
+            
+            // Admin može čitati i pisati sve korisnike
+            allow read, write: if isAdmin();
+        }
+        
+        // Bids collection
+        match /bids/{bidId} {
+            // Users can read only their own bids
+            allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+            
+            // Admins can read and write everything
+            allow read, write: if isAdmin();
+        }
+
+        // Notifications collection
+        match /notifications/{notificationId} {
+            // Users can read and update (for mark as read) only their own notifications
+            allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
+            
+            // Admins can read and write everything
+            allow read, write: if isAdmin();
+        }
+        
+        // All other collections (e.g. categories, auctions, products, collections)
+        match /{collection}/{document=**} {
+            // Everyone can read non-bid collections, only admin can write
+            allow read: if collection != "bids" || isAdmin();
+            allow write: if isAdmin();
+        }
+    }
+}

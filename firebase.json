@@ -1,0 +1,20 @@
+{
+    "storage": {
+        "rules": "storage.rules"
+    },
+    "firestore": {
+        "rules": "firestore.rules"
+    },
+    "functions": [
+        {
+            "source": "functions/functions",
+            "codebase": "default",
+            "ignore": [
+                "node_modules",
+                ".git",
+                "firebase-debug.log",
+                "firebase-debug.*.log"
+            ]
+        }
+    ]
+}
