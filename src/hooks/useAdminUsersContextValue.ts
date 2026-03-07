@@ -105,6 +105,11 @@ export const useAdminUsersContextValue = ({
 
     const handleDeleteConfirm = useCallback(async () => {
         if (!selectedUser) return;
+        if (selectedUser.role === "admin" && getAdminCount() <= 1) {
+            toast({ title: t("actionNotAllowed"), description: t("cannotDeleteOnlyAdmin"), variant: "destructive" });
+            dialogState.close();
+            return;
+        }
         setIsMutating(true);
         try {
             await deleteUser(selectedUser.id);
@@ -116,7 +121,7 @@ export const useAdminUsersContextValue = ({
         } finally {
             setIsMutating(false);
         }
-    }, [selectedUser, deleteUser, t, dialogState]);
+    }, [selectedUser, deleteUser, getAdminCount, t, dialogState]);
 
     const handleStatusChangeConfirm = useCallback(async () => {
         if (!selectedUser || !pendingStatusChange) return;
@@ -136,6 +141,11 @@ export const useAdminUsersContextValue = ({
 
     const handleRoleChangeConfirm = useCallback(async () => {
         if (!selectedUser || !pendingRoleChange) return;
+        if (selectedUser.role === "admin" && pendingRoleChange !== "admin" && getAdminCount() <= 1) {
+            toast({ title: t("actionNotAllowed"), description: t("cannotChangeOnlyAdmin"), variant: "destructive" });
+            dialogState.close();
+            return;
+        }
         setIsMutating(true);
         try {
             await changeUserRole(selectedUser.id, pendingRoleChange);
@@ -148,7 +158,7 @@ export const useAdminUsersContextValue = ({
         } finally {
             setIsMutating(false);
         }
-    }, [selectedUser, pendingRoleChange, changeUserRole, t, dialogState]);
+    }, [selectedUser, pendingRoleChange, changeUserRole, getAdminCount, t, dialogState]);
 
     const openBanDialog = useCallback((user: User, status: UserStatus) => {
         if (status === "banned" && user.role === "admin") {

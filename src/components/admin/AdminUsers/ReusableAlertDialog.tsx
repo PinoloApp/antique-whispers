@@ -54,7 +54,7 @@ const ReusableAlertDialog = React.memo(
                         <AlertDialogCancel disabled={isMutating}>
                             {cancelText || (language === "en" ? "Cancel" : "Otkaži")}
                         </AlertDialogCancel>
-                        <AlertDialogAction onClick={onAction} className={actionClassName} disabled={isMutating}>
+                        <AlertDialogAction onClick={(e) => { e.preventDefault(); onAction(); }} className={actionClassName} disabled={isMutating}>
                             {isMutating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                             {isMutating ? (language === "en" ? "Processing..." : "Obrada...") : actionText}
                         </AlertDialogAction>

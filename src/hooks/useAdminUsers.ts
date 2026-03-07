@@ -52,12 +52,19 @@ export const useAdminUsers = () => {
     const addUser = useCallback(async (newUser: User) => {
         try {
             const registerUser = httpsCallable(functions, "registerUser");
-            await registerUser({
+            const result = await registerUser({
                 email: newUser.email,
                 name: `${newUser.firstName} ${newUser.lastName}`,
                 password: "DefaultPassword123!", // Initial password, should force reset or send link
             });
-            // Firestore sync takes care of updating local array
+            // If the user should be admin, set the role after creation
+            if (newUser.role === "admin") {
+                const uid = (result.data as any)?.uid;
+                if (uid) {
+                    const setUserRole = httpsCallable(functions, "setUserRole");
+                    await setUserRole({ uid, role: "admin" });
+                }
+            }
         } catch (error: any) {
             console.error("Error creating user:", error);
             throw error;

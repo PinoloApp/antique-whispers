@@ -5,7 +5,10 @@
       "Bash(npx vite build)",
       "Bash(git init)",
       "Bash(git remote add origin git@github.com:VeljkoArsic/antique-whispers.git)",
-      "Bash(git add -A)"
+      "Bash(git add -A)",
+      "Bash(git commit:*)",
+      "Bash(git push -u origin main)",
+      "Bash(git remote set-url origin https://github.com/VeljkoArsic/antique-whispers.git)"
     ]
   }
 }

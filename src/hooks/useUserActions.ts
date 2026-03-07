@@ -41,13 +41,14 @@ export const useUserActions = ({ users, deleteUser, changeUserStatus, changeUser
 
     const handleBulkDelete = useCallback(() => {
         const selected = getSelectedUserObjects();
-        const soleAdmin = selected.some((u) => u.role === "admin" && getAdminCount() === 1);
-        if (soleAdmin) {
+        const adminCount = getAdminCount();
+        const selectedAdminCount = selected.filter((u) => u.role === "admin").length;
+        if (selectedAdminCount > 0 && adminCount - selectedAdminCount < 1) {
             toast({
                 title: language === "en" ? "Action Not Allowed" : "Akcija nije dozvoljena",
                 description: language === "en"
-                    ? "Cannot delete the only admin. Please assign another admin first."
-                    : "Nije moguće obrisati jedinog administratora. Prvo dodelite ulogu administratora drugom korisniku.",
+                    ? "Cannot delete all admins. At least one admin must remain."
+                    : "Nije moguće obrisati sve administratore. Barem jedan administrator mora ostati.",
                 variant: "destructive",
             });
             return;
@@ -201,8 +202,23 @@ export const useUserActions = ({ users, deleteUser, changeUserStatus, changeUser
     );
 
     const confirmBulkRoleChange = useCallback(async () => {
-        setIsMutating(true);
         const changeable = getRoleChangeableUsers(bulkRoleTarget);
+        if (bulkRoleTarget !== "admin") {
+            const adminCount = getAdminCount();
+            const adminsBeingDemoted = changeable.filter((u) => u.role === "admin").length;
+            if (adminsBeingDemoted > 0 && adminCount - adminsBeingDemoted < 1) {
+                toast({
+                    title: language === "en" ? "Action Not Allowed" : "Akcija nije dozvoljena",
+                    description: language === "en"
+                        ? "Cannot demote all admins. At least one admin must remain."
+                        : "Nije moguće ukloniti ulogu svim administratorima. Barem jedan administrator mora ostati.",
+                    variant: "destructive",
+                });
+                dialogState.close();
+                return;
+            }
+        }
+        setIsMutating(true);
         const changeableIds = changeable.map((u) => u.id);
 
         try {
