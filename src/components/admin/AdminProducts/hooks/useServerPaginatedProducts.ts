@@ -31,6 +31,7 @@ export const useServerPaginatedProducts = ({ language, categories, auctions, sta
     const [sortBy, setSortBy] = useState<ProductSortOption>("id-desc");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50] as const;
 
     // All products from Firestore (for search/client mode and validation)
@@ -154,7 +155,7 @@ export const useServerPaginatedProducts = ({ language, categories, auctions, sta
             unsubRef.current?.();
             unsubRef.current = null;
         };
-    }, [currentPage, itemsPerPage, sortBy, statusFilter, categoryFilter, auctionFilter, isServerMode]);
+    }, [currentPage, itemsPerPage, sortBy, statusFilter, categoryFilter, auctionFilter, isServerMode, refreshTrigger]);
 
     // Cleanup when switching to client mode
     useEffect(() => {
@@ -221,6 +222,10 @@ export const useServerPaginatedProducts = ({ language, categories, auctions, sta
     const resetPagination = useCallback(() => {
         setCurrentPage(1);
         cursorCacheRef.current.clear();
+    }, []);
+
+    const refresh = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
     }, []);
 
     const handleFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
@@ -327,5 +332,6 @@ export const useServerPaginatedProducts = ({ language, categories, auctions, sta
         loading,
         allProducts,
         resetPagination,
+        refresh,
     };
 };

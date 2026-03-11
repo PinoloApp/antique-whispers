@@ -18,7 +18,7 @@ export interface AuctionFormModalProps extends AuctionFormType {
     products: Product[];
     collections: Collection[];
     collectionProducts: Product[];
-    isSubmitting?: boolean;
+    isMutating?: boolean;
 }
 
 export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
@@ -27,7 +27,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
     products,
     collections,
     collectionProducts,
-    isSubmitting,
+    isMutating,
     isOpen,
     setIsOpen,
     editingAuction,
@@ -78,7 +78,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
     originalCollectionIds,
 }) => {
     const handleOpenChange = (open: boolean) => {
-        if (!open && isSubmitting) return;
+        if (!open && isMutating) return;
         setIsOpen(open);
         if (!open) resetForm();
     };
@@ -175,7 +175,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     value={formData.startDate}
                                     onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
                                     onBlur={() => markFormTouched("startDate")}
-                                    disabled={editingAuction?.status === "active"}
+                                    disabled={editingAuction?.status === "active" || editingAuction?.status === "paused" || editingAuction?.status === "cancelled"}
                                     min={new Date().toISOString().split('T')[0]}
                                 />
                                 {getDateError("startDate") && (
@@ -189,7 +189,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     value={formData.startTime}
                                     onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
                                     onBlur={() => markFormTouched("startTime")}
-                                    disabled={editingAuction?.status === "active"}
+                                    disabled={editingAuction?.status === "active" || editingAuction?.status === "paused" || editingAuction?.status === "cancelled"}
                                     min={formData.startDate === new Date().toISOString().split('T')[0] ? new Date().toTimeString().slice(0, 5) : undefined}
                                 />
                                 {getDateError("startTime") && (
@@ -284,13 +284,13 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                     />
                 </form>
                 <div className="pt-4 border-t mt-auto">
-                    <Button type="submit" className="w-full" onClick={handleSubmit} disabled={isSubmitting}>
+                    <Button type="submit" className="w-full" onClick={handleSubmit} disabled={isMutating}>
                         {editingAuction
                             ? language === "en" ? "Update Auction" : "Ažuriraj Aukciju"
                             : language === "en" ? "Create Auction" : "Kreiraj Aukciju"}
                     </Button>
                 </div>
-                {isSubmitting && (
+                {isMutating && (
                     <div className="absolute inset-0 flex justify-center items-center bg-background/50 backdrop-blur-sm">
                         <Loader2 className="w-8 h-8 animate-spin text-primary" />
                     </div>

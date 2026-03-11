@@ -3,6 +3,7 @@ import { Product, ProductStatus } from "@/contexts/DataContext";
 import { ProductService } from "@/services/productService";
 import { useToast } from "@/hooks/use-toast";
 import { ProductDialogKey } from "../config/productDialogTypes";
+import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
 
 interface UseProductActionsProps {
     language: "en" | "sr";
@@ -10,6 +11,7 @@ interface UseProductActionsProps {
     auctions: any[];
     updateAuction: (id: number, auction: any) => void;
     statusOptions: { value: ProductStatus; labelEn: string; labelSr: string }[];
+    onSuccess?: () => void;
 }
 
 export const useProductActions = ({
@@ -18,12 +20,14 @@ export const useProductActions = ({
     auctions,
     updateAuction,
     statusOptions,
+    onSuccess,
 }: UseProductActionsProps) => {
     const { toast } = useToast();
 
     const [activeDialog, setActiveDialog] = useState<ProductDialogKey | null>(null);
     const [productToDelete, setProductToDelete] = useState<number | null>(null);
     const [pendingStatusChange, setPendingStatusChange] = useState<{ product: Product; newStatus: ProductStatus } | null>(null);
+    const [isMutating, setIsMutating] = useState(false);
 
     const openDialog = useCallback((key: ProductDialogKey) => setActiveDialog(key), []);
     const closeDialog = useCallback(() => {
@@ -44,12 +48,14 @@ export const useProductActions = ({
 
     const handleDeleteConfirm = async () => {
         if (productToDelete) {
+            setIsMutating(true);
             try {
                 await ProductService.deleteWithStorage(productToDelete);
                 toast({
                     title: language === "en" ? "Product Deleted" : "Proizvod Obrisan",
                     description: language === "en" ? "The product has been deleted." : "Proizvod je obrisan.",
                 });
+                onSuccess?.();
             } catch (error) {
                 console.error("Error deleting product:", error);
                 toast({
@@ -57,6 +63,8 @@ export const useProductActions = ({
                     description: language === "en" ? "Failed to delete product." : "Greška pri brisanju proizvoda.",
                     variant: "destructive",
                 });
+            } finally {
+                setIsMutating(false);
             }
         }
         closeDialog();
@@ -71,13 +79,14 @@ export const useProductActions = ({
     const executeStatusChange = async () => {
         if (!pendingStatusChange) return;
         const { product, newStatus } = pendingStatusChange;
+        setIsMutating(true);
 
         try {
             // If changing FROM on_auction, remove from any auction
             if (product.status === "on_auction" && newStatus !== "on_auction") {
                 const parentAuction = auctions.find((a) => a.lotIds.includes(product.id));
                 if (parentAuction) {
-                    updateAuction(parentAuction.id, {
+                    await updateAuction(parentAuction.id, {
                         lotIds: parentAuction.lotIds.filter((id: number) => id !== product.id),
                     });
                 }
@@ -96,6 +105,7 @@ export const useProductActions = ({
                         ? `Product status changed to ${statusOptions.find((o) => o.value === newStatus)?.labelEn}.`
                         : `Status proizvoda promenjen u ${statusOptions.find((o) => o.value === newStatus)?.labelSr}.`,
             });
+            onSuccess?.();
         } catch (error) {
             console.error("Error updating status:", error);
             toast({
@@ -103,6 +113,8 @@ export const useProductActions = ({
                 description: language === "en" ? "Failed to update status." : "Greška pri ažuriranju statusa.",
                 variant: "destructive",
             });
+        } finally {
+            setIsMutating(false);
         }
         closeDialog();
     };
@@ -118,6 +130,20 @@ export const useProductActions = ({
                 description: language === "en"
                     ? "This product has active bids and cannot be removed from the auction."
                     : "Ovaj proizvod ima aktivne ponude i ne može biti uklonjen sa aukcije.",
+                variant: "destructive",
+            });
+            closeDialog();
+            return;
+        }
+
+        // New restriction: Block status change if item is in active or upcoming auction, except for withdrawing
+        const isLocked = isAuctionActiveOrUpcoming(product.auctionId, auctions);
+        if (isLocked && newStatus !== 'withdrawn' && newStatus !== product.status) {
+            toast({
+                title: language === "en" ? "Cannot Change Status" : "Nije moguće promeniti status",
+                description: language === "en"
+                    ? "This product is in an active or upcoming auction. You can only withdraw it."
+                    : "Ovaj proizvod je na aktivnoj ili predstojećoj aukciji. Možete ga samo povući.",
                 variant: "destructive",
             });
             closeDialog();
@@ -159,5 +185,6 @@ export const useProductActions = ({
         handleInlineStatusChange,
         handleConfirmInlineStatusChange,
         executeStatusChange,
+        isMutating,
     };
 };

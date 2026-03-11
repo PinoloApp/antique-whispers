@@ -216,7 +216,25 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
 
             {/* Auction Cards Container */}
             <div className="space-y-4 flex-1">
-              {paginatedAuctions.length === 0 ? (
+              {auctions.length === 0 ? (
+                <div className="text-left py-8 text-muted-foreground flex flex-col gap-4 text-sm leading-relaxed text-left bg-muted/20 p-6 rounded-lg border border-border/50">
+                  <p>
+                    {language === "en"
+                      ? "Auctions are held twice a year. Internet auctions last from April 1st to the last week of June and from October 1st to the last week of December."
+                      : "Aukcije se održavaju dva puta godišnje. Internet aukcije traju od 01.04. do poslednje nedelje juna i od 01.10. do poslednje nedelje u decembru."}
+                  </p>
+                  <p>
+                    {language === "en"
+                      ? "Auctions close after the live auction held in Belgrade at the Nobel Hotel in Višegradska Street."
+                      : "Aukcije se zatvaraju nakon sprovedene aukcije koja se održava u Beogradu u hotelu Nobel u Višegradskoj ulici."}
+                  </p>
+                  <p>
+                    {language === "en"
+                      ? "Details about the live auction schedule will be published in a timely manner in the user notifications section."
+                      : "Detalji o terminu live aukcija će blagovremeno biti objavljeni u sekciji obaveštenja za korisnike."}
+                  </p>
+                </div>
+              ) : paginatedAuctions.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   {language === "en" ? "No auctions on this date" : "Nema aukcija na ovaj datum"}
                 </div>
@@ -247,7 +265,7 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
                                   ? "bg-primary-foreground/20"
                                   : "bg-green-500/10 text-green-600"
                                 : auction.status === "upcoming" ||
-                                    (auction.status === "cancelled" && auction.date >= new Date())
+                                  (auction.status === "cancelled" && auction.date >= new Date())
                                   ? selectedAuctionId === auction.id
                                     ? "bg-primary-foreground/20"
                                     : "bg-yellow-500/10 text-yellow-600"
@@ -269,7 +287,7 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
                                 ? "Live"
                                 : "Uživo"
                               : auction.status === "upcoming" ||
-                                  (auction.status === "cancelled" && auction.date >= new Date())
+                                (auction.status === "cancelled" && auction.date >= new Date())
                                 ? language === "en"
                                   ? "Upcoming"
                                   : "Predstojeća"
@@ -278,14 +296,14 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
                                   : "Završena"}
                           </span>
                         </div>
-                        <h4 className="font-serif font-semibold mb-1 line-clamp-1">{auction.title[language]}</h4>
+                        <h4 className="font-serif font-semibold mb-1 line-clamp-1">{auction.title[language as "en" | "sr"]}</h4>
                         <p
                           className={cn(
                             "text-sm mb-2 line-clamp-2",
                             selectedAuctionId === auction.id ? "text-primary-foreground/80" : "text-muted-foreground",
                           )}
                         >
-                          {auction.description[language]}
+                          {auction.description[language as "en" | "sr"]}
                         </p>
                         <p
                           className={cn(

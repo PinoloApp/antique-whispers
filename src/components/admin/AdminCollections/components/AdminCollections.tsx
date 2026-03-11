@@ -26,7 +26,7 @@ const statusOptions: { value: CollectionStatus; labelEn: string; labelSr: string
 
 export default function AdminCollections() {
   const { language, t } = useLanguage();
-  const { auctions, updateAuction } = useData();
+  const { auctions, updateAuction, products } = useData();
   const { collectionProducts } = useCollectionProducts();
   const { categories } = useCategories();
   const { toast } = useToast();
@@ -34,9 +34,9 @@ export default function AdminCollections() {
   const [expandedCollections, setExpandedCollections] = useState<number[]>([]);
 
   const filterSortHook = useServerPaginatedCollections({ language });
-  const { allCollections } = filterSortHook;
+  const { allCollections, refresh } = filterSortHook;
 
-  const formHook = useCollectionForm(language, allCollections);
+  const formHook = useCollectionForm(language, allCollections, products);
   const {
     resetForm,
     setIsOpen,
@@ -53,6 +53,7 @@ export default function AdminCollections() {
     language,
     auctions,
     updateAuction,
+    onSuccess: refresh,
   });
 
   const actionsHook = useCollectionActions({
@@ -62,6 +63,7 @@ export default function AdminCollections() {
     updateAuction,
     statusOptions,
     onAuctionDeleteWarningTrigger: () => bulkActionsHook.openBulkDialog("auctionDeleteWarning"),
+    onSuccess: refresh,
   });
 
   const { handleDeleteClick, handleStatusChange } = actionsHook;
@@ -132,6 +134,7 @@ export default function AdminCollections() {
             categories={categories}
             statusOptions={statusOptions}
             onStatusChange={handleStatusChange}
+            auctions={auctions}
           />
         </>
       )}

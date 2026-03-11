@@ -30,6 +30,7 @@ export const useServerPaginatedCollections = ({ language }: UseServerPaginatedCo
     const [sortBy, setSortBy] = useState<CollectionSortOption>("newest" as CollectionSortOption);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50] as const;
 
     // All collections from Firestore (for search/client mode and validation)
@@ -147,7 +148,7 @@ export const useServerPaginatedCollections = ({ language }: UseServerPaginatedCo
             unsubRef.current?.();
             unsubRef.current = null;
         };
-    }, [currentPage, itemsPerPage, sortBy, statusFilter, isServerMode]);
+    }, [currentPage, itemsPerPage, sortBy, statusFilter, isServerMode, refreshTrigger]);
 
     // Cleanup when switching to client mode
     useEffect(() => {
@@ -214,6 +215,10 @@ export const useServerPaginatedCollections = ({ language }: UseServerPaginatedCo
     const resetPagination = useCallback(() => {
         setCurrentPage(1);
         cursorCacheRef.current.clear();
+    }, []);
+
+    const refresh = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
     }, []);
 
     const handleFilterChange = useCallback((newFilter: CollectionStatusFilter) => {
@@ -289,5 +294,6 @@ export const useServerPaginatedCollections = ({ language }: UseServerPaginatedCo
         handleItemsPerPageChange,
         setItemsPerPage: handleItemsPerPageChange,
         resetPagination,
+        refresh,
     };
 };

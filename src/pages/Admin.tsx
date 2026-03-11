@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Calendar, Package, FolderTree, Menu, Users, Globe, CreditCard, BarChart2, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -22,10 +22,16 @@ type AdminSection = "auctions" | "products" | "categories" | "collections" | "us
 
 const Admin = () => {
   const { language, setLanguage } = useLanguage();
-  const [activeSection, setActiveSection] = useState<AdminSection>("auctions");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const sections = [
+  const activeSection = (searchParams.get("tab") as AdminSection) || "auctions";
+
+  const setActiveSection = (sectionId: AdminSection) => {
+    setSearchParams({ tab: sectionId });
+  };
+
+  const sections = useMemo(() => [
     { id: "auctions" as const, icon: Calendar, label: { en: "Auctions", sr: "Aukcije" } },
     { id: "categories" as const, icon: FolderTree, label: { en: "Categories", sr: "Kategorije" } },
     { id: "products" as const, icon: Package, label: { en: "Products", sr: "Proizvodi" } },
@@ -33,7 +39,7 @@ const Admin = () => {
     { id: "users" as const, icon: Users, label: { en: "Users", sr: "Korisnici" } },
     { id: "payments" as const, icon: CreditCard, label: { en: "Payments", sr: "Plaćanja" } },
     { id: "analytics" as const, icon: BarChart2, label: { en: "Analytics", sr: "Analitika" } },
-  ];
+  ], []);
 
   const handleSectionChange = (sectionId: AdminSection) => {
     setActiveSection(sectionId);

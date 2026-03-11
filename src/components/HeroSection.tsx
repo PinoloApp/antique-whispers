@@ -137,6 +137,15 @@ const HeroSection = ({ nextAuctionDate, auctions, selectedAuctionId, onSelectAuc
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center flex flex-col items-center justify-center min-h-[60vh]">
+            {/* Auction Calendar Badge */}
+            <div className="mb-8 animate-fade-in w-full text-center">
+              <AuctionCalendar
+                auctions={[]}
+                selectedAuctionId={null}
+                onSelectAuction={onSelectAuction}
+              />
+            </div>
+
             {/* Icon */}
             <div className="w-20 h-20 rounded-full bg-secondary/20 flex items-center justify-center mb-8 animate-fade-in">
               <Clock className="w-10 h-10 text-secondary" />

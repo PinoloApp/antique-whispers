@@ -173,8 +173,18 @@ export const buildUserDialogConfig = (
         return acc;
     }, {} as Record<UserStaticDialogKey, UserDialogConfig>);
 
-    return {
+    const merged = {
         ...staticConfigs,
         ...dynamicConfigs,
     };
+
+    // Ensure isMutating is applied to all configs even if dynamicConfigs overwrote them
+    (Object.keys(merged) as UserDialogKey[]).forEach((key) => {
+        const config = merged[key];
+        if (config) {
+            config.isMutating = actions.isMutating;
+        }
+    });
+
+    return merged;
 };

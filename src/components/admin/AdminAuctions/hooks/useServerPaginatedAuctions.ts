@@ -22,6 +22,7 @@ export const useServerPaginatedAuctions = ({ language, statusOptions }: UseServe
     const [sortBy, setSortBy] = useState<AuctionSortOption>("newest");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50] as const;
 
     // All auctions from Firestore (for search/client mode and validation)
@@ -139,7 +140,7 @@ export const useServerPaginatedAuctions = ({ language, statusOptions }: UseServe
             unsubRef.current?.();
             unsubRef.current = null;
         };
-    }, [currentPage, itemsPerPage, sortBy, statusFilter, isServerMode]);
+    }, [currentPage, itemsPerPage, sortBy, statusFilter, isServerMode, refreshTrigger]);
 
     // Client mode: filter/sort/paginate allAuctions
     const clientFilteredAndSorted = useMemo(() => {
@@ -192,6 +193,10 @@ export const useServerPaginatedAuctions = ({ language, statusOptions }: UseServe
     const resetPagination = useCallback(() => {
         setCurrentPage(1);
         cursorCacheRef.current.clear();
+    }, []);
+
+    const refresh = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
     }, []);
 
     const handleFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
@@ -270,6 +275,7 @@ export const useServerPaginatedAuctions = ({ language, statusOptions }: UseServe
         startIndex,
         endIndex,
         resetPagination,
+        refresh,
         loading,
     };
 };

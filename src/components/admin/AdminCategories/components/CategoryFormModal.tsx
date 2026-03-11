@@ -37,6 +37,16 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ language, 
     const getErr = (field: string, value: string) =>
         formTouched[field] ? getFieldError(value, requiredRule, language) : null;
 
+    const isDuplicateTitleSr = (title: string, index: number) => {
+        if (!title.trim()) return false;
+        return formData.subcategories.some((s, i) => i !== index && s.titleSr.trim().toLowerCase() === title.trim().toLowerCase());
+    };
+
+    const isDuplicateTitleEn = (title: string, index: number) => {
+        if (!title.trim()) return false;
+        return formData.subcategories.some((s, i) => i !== index && s.titleEn.trim().toLowerCase() === title.trim().toLowerCase());
+    };
+
     return (
         <Dialog
             open={isOpen}
@@ -188,10 +198,16 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ language, 
                                                     value={sub.titleSr}
                                                     onChange={(e) => updateSubcategory(index, "titleSr", e.target.value)}
                                                     onBlur={() => markFormTouched(`sub_${index}_titleSr`)}
+                                                    className={isDuplicateTitleSr(sub.titleSr, index) ? "border-destructive focus-visible:ring-destructive" : ""}
                                                     required
                                                 />
                                                 {getErr(`sub_${index}_titleSr`, sub.titleSr) && (
                                                     <p className="text-xs text-destructive mt-1">{getErr(`sub_${index}_titleSr`, sub.titleSr)}</p>
+                                                )}
+                                                {!getErr(`sub_${index}_titleSr`, sub.titleSr) && isDuplicateTitleSr(sub.titleSr, index) && (
+                                                    <p className="text-xs text-destructive mt-1">
+                                                        {language === "en" ? "Duplicate title" : "Duplikat naslova"}
+                                                    </p>
                                                 )}
                                             </div>
                                             <div>
@@ -200,10 +216,16 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ language, 
                                                     value={sub.titleEn}
                                                     onChange={(e) => updateSubcategory(index, "titleEn", e.target.value)}
                                                     onBlur={() => markFormTouched(`sub_${index}_titleEn`)}
+                                                    className={isDuplicateTitleEn(sub.titleEn, index) ? "border-destructive focus-visible:ring-destructive" : ""}
                                                     required
                                                 />
                                                 {getErr(`sub_${index}_titleEn`, sub.titleEn) && (
                                                     <p className="text-xs text-destructive mt-1">{getErr(`sub_${index}_titleEn`, sub.titleEn)}</p>
+                                                )}
+                                                {!getErr(`sub_${index}_titleEn`, sub.titleEn) && isDuplicateTitleEn(sub.titleEn, index) && (
+                                                    <p className="text-xs text-destructive mt-1">
+                                                        {language === "en" ? "Duplicate title" : "Duplikat naslova"}
+                                                    </p>
                                                 )}
                                             </div>
                                         </div>

@@ -3,6 +3,7 @@ import { Collection, CollectionStatus, Auction } from "@/contexts/DataContext";
 import { CollectionService } from "@/services/collectionService";
 import { useToast } from "@/hooks/use-toast";
 import { CollectionDialogKey } from "../config/collectionDialogTypes";
+import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
 
 interface UseCollectionActionsProps {
     language: "en" | "sr";
@@ -11,6 +12,7 @@ interface UseCollectionActionsProps {
     updateAuction: (id: number, data: any) => Promise<void>;
     statusOptions: { value: CollectionStatus; labelEn: string; labelSr: string }[];
     onAuctionDeleteWarningTrigger: () => void;
+    onSuccess?: () => void;
 }
 
 export const useCollectionActions = ({
@@ -19,12 +21,14 @@ export const useCollectionActions = ({
     auctions,
     updateAuction,
     statusOptions,
-    onAuctionDeleteWarningTrigger
+    onAuctionDeleteWarningTrigger,
+    onSuccess
 }: UseCollectionActionsProps) => {
     const { toast } = useToast();
     const [activeDialog, setActiveDialog] = useState<CollectionDialogKey | null>(null);
     const [collectionToDelete, setCollectionToDelete] = useState<number | null>(null);
     const [pendingStatusChange, setPendingStatusChange] = useState<{ collection: Collection; newStatus: CollectionStatus } | null>(null);
+    const [isMutating, setIsMutating] = useState(false);
 
     const openDialog = useCallback((key: CollectionDialogKey) => setActiveDialog(key), []);
     const closeDialog = useCallback(() => {
@@ -46,12 +50,14 @@ export const useCollectionActions = ({
     const handleDeleteConfirm = useCallback(async () => {
         if (collectionToDelete) {
             const collection = allCollections.find((c) => c.id === collectionToDelete);
+            setIsMutating(true);
             try {
                 await CollectionService.deleteWithStorage(collectionToDelete, collection?.productIds || []);
                 toast({
                     title: language === "en" ? "Collection Deleted" : "Kolekcija Obrisana",
                     description: language === "en" ? "The collection and its images have been deleted." : "Kolekcija i njene slike su obrisane.",
                 });
+                onSuccess?.();
             } catch (error) {
                 console.error("Error deleting collection", error);
                 toast({
@@ -59,6 +65,8 @@ export const useCollectionActions = ({
                     description: language === "en" ? "Failed to delete collection." : "Greška pri brisanju kolekcije.",
                     variant: "destructive",
                 });
+            } finally {
+                setIsMutating(false);
             }
         }
         closeDialog();
@@ -74,6 +82,7 @@ export const useCollectionActions = ({
         if (!pendingStatusChange) return;
         const { collection: coll, newStatus } = pendingStatusChange;
 
+        setIsMutating(true);
         try {
             // If changing FROM on_auction, remove from any auction
             if (coll.status === "on_auction" && newStatus !== "on_auction") {
@@ -97,6 +106,7 @@ export const useCollectionActions = ({
                     ? `Collection status changed to ${statusOptions.find((o) => o.value === newStatus)?.labelEn}.`
                     : `Status kolekcije promenjen u ${statusOptions.find((o) => o.value === newStatus)?.labelSr}.`,
             });
+            onSuccess?.();
         } catch (error) {
             console.error("Error updating status", error);
             toast({
@@ -104,6 +114,8 @@ export const useCollectionActions = ({
                 description: language === "en" ? "Failed to update status." : "Greška pri ažuriranju statusa.",
                 variant: "destructive",
             });
+        } finally {
+            setIsMutating(false);
         }
         closeDialog();
     }, [pendingStatusChange, auctions, updateAuction, language, statusOptions, toast, closeDialog]);
@@ -119,6 +131,20 @@ export const useCollectionActions = ({
                 description: language === "en"
                     ? "This collection has active bids and cannot be removed from the auction."
                     : "Ova kolekcija ima aktivne ponude i ne može biti uklonjena sa aukcije.",
+                variant: "destructive",
+            });
+            closeDialog();
+            return;
+        }
+
+        // New restriction: Block status change if item is in active or upcoming auction, except for withdrawing
+        const isLocked = isAuctionActiveOrUpcoming(coll.auctionId, auctions);
+        if (isLocked && newStatus !== 'withdrawn' && newStatus !== coll.status) {
+            toast({
+                title: language === "en" ? "Cannot Change Status" : "Nije moguće promeniti status",
+                description: language === "en"
+                    ? "This collection is in an active or upcoming auction. You can only withdraw it."
+                    : "Ova kolekcija je na aktivnoj ili predstojećoj aukciji. Možete je samo povući.",
                 variant: "destructive",
             });
             closeDialog();
@@ -160,5 +186,6 @@ export const useCollectionActions = ({
         handleStatusChange,
         executeStatusChange,
         handleConfirmInlineStatusChange,
+        isMutating
     };
 };

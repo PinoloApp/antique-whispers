@@ -16,6 +16,7 @@ const translations: Translations = {
   "nav.favorites": { en: "Favorites", sr: "Favoriti" },
   "nav.about": { en: "About Us", sr: "O nama" },
   "nav.contact": { en: "Contact", sr: "Kontakt" },
+  "nav.notifications": { en: "Notifications", sr: "Obaveštenja" },
 
   // FAQ Page
   "faq.title": { en: "Frequently Asked Questions", sr: "Česta Pitanja" },

@@ -23,8 +23,8 @@ export const CollectionDialogs: React.FC<CollectionDialogsProps> = ({
     statusOptions,
     auctions,
 }) => {
-    const { activeDialog, closeDialog } = actionsHook;
-    const { activeBulkDialog, closeBulkDialog } = bulkActionsHook;
+    const { activeDialog, closeDialog, isMutating: isActionMutating } = actionsHook;
+    const { activeBulkDialog, closeBulkDialog, isMutating: isBulkMutating } = bulkActionsHook;
     const { createDialogOpen, setCreateDialogOpen, handleCreateConfirm, updateDialogOpen, setUpdateDialogOpen, handleUpdateConfirm } = formHook;
 
     const dialogConfig = buildCollectionDialogConfig(
@@ -42,7 +42,7 @@ export const CollectionDialogs: React.FC<CollectionDialogsProps> = ({
     // or we could bridge them. Let's bridge them for cleaner UI.
 
     const handleOpenChange = (open: boolean) => {
-        if (!open) {
+        if (!open && !isActionMutating && !isBulkMutating) {
             if (activeBulkDialog) closeBulkDialog();
             if (activeDialog) closeDialog();
             if (createDialogOpen) setCreateDialogOpen(false);
@@ -77,6 +77,7 @@ export const CollectionDialogs: React.FC<CollectionDialogsProps> = ({
             actionText={currentConfig?.actionText || ""}
             actionClassName={currentConfig?.actionClassName}
             cancelText={currentConfig?.cancelText}
+            isMutating={isActionMutating || isBulkMutating}
             icon={currentConfig?.icon}
         />
     );

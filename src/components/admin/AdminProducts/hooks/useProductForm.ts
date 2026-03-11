@@ -1,15 +1,17 @@
 import { useState, useCallback } from "react";
-import { Product } from "@/contexts/DataContext";
+import { Product, Collection } from "@/contexts/DataContext";
 import { ProductService } from "@/services/productService";
 import { useToast } from "@/hooks/use-toast";
 import { ProductFormData } from "../types";
+
+import { getNextLotNumber } from "@/utils/lotUtils";
 
 export interface UseProductFormOptions {
     onSuccessCreate?: (product: Product) => void;
     onSuccessUpdate?: (product: Product) => void;
 }
 
-export const useProductForm = (language: "en" | "sr", options?: UseProductFormOptions) => {
+export const useProductForm = (language: "en" | "sr", allProducts: Product[], allCollections: Collection[], options?: UseProductFormOptions) => {
     const { toast } = useToast();
 
     const [isOpen, setIsOpen] = useState(false);
@@ -117,6 +119,22 @@ export const useProductForm = (language: "en" | "sr", options?: UseProductFormOp
         // Required: name SR/EN, starting price
         if (!formData.namesr.trim() || !formData.name.trim() || !formData.currentBid.trim()) return;
 
+        // Check for duplicate lot number
+        const lotTrimmed = formData.lot.trim();
+        if (lotTrimmed) {
+            const isDuplicateProduct = allProducts.some(p => p.lot === lotTrimmed && p.id !== editingProduct?.id);
+            const isDuplicateCollection = allCollections.some(c => c.lotNumber === lotTrimmed);
+
+            if (isDuplicateProduct || isDuplicateCollection) {
+                toast({
+                    title: language === "en" ? "Duplicate Lot Number" : "Duplikat Broja Lota",
+                    description: language === "en" ? "This lot number is already in use." : "Ovaj broj lota je već u upotrebi.",
+                    variant: "destructive",
+                });
+                return;
+            }
+        }
+
         // Paired optional: if one language filled, other is required
         const pairCheck = (a: string, b: string) => (a.trim() || b.trim() ? a.trim() && b.trim() : true);
         if (!pairCheck(formData.subtitleSr, formData.subtitleEn)) return;
@@ -196,10 +214,21 @@ export const useProductForm = (language: "en" | "sr", options?: UseProductFormOp
         }
     };
 
+    const toggleOpen = useCallback((open: boolean) => {
+        setIsOpen(open);
+        if (open && !editingProduct) {
+            const nextLot = getNextLotNumber(
+                allProducts.map(p => p.lot),
+                allCollections.map(c => c.lotNumber)
+            );
+            setFormData(prev => ({ ...prev, lot: nextLot }));
+        }
+    }, [editingProduct, allProducts, allCollections]);
+
     return {
         isSubmitting,
         isOpen,
-        setIsOpen,
+        setIsOpen: toggleOpen,
         editingProduct,
         setEditingProduct,
         formData,

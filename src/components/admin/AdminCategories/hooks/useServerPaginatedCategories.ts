@@ -19,6 +19,7 @@ export const useServerPaginatedCategories = ({ language }: UseServerPaginatedCat
     const [sortBy, setSortBy] = useState<SortOption>("newest");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50] as const;
 
     // All categories from Firestore (for search/client mode and validation)
@@ -136,7 +137,7 @@ export const useServerPaginatedCategories = ({ language }: UseServerPaginatedCat
             unsubRef.current?.();
             unsubRef.current = null;
         };
-    }, [currentPage, itemsPerPage, sortBy, statusFilter, isServerMode]);
+    }, [currentPage, itemsPerPage, sortBy, statusFilter, isServerMode, refreshTrigger]);
 
     // Cleanup when switching to client mode
     useEffect(() => {
@@ -215,6 +216,10 @@ export const useServerPaginatedCategories = ({ language }: UseServerPaginatedCat
         cursorCacheRef.current.clear();
     }, []);
 
+    const refresh = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
+    }, []);
+
     const handleFilterChange = useCallback((newFilter: StatusFilter) => {
         setStatusFilter(newFilter);
         resetPagination();
@@ -289,5 +294,7 @@ export const useServerPaginatedCategories = ({ language }: UseServerPaginatedCat
         handleFilterChange,
         handleSearchChange,
         handleItemsPerPageChange,
+        resetPagination,
+        refresh,
     };
 };

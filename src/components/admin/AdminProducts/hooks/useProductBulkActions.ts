@@ -4,6 +4,7 @@ import { ProductService } from "@/services/productService";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, PlayCircle, Pause, Clock } from "lucide-react";
 import { ProductDialogKey } from "../config/productDialogTypes";
+import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
 
 interface UseProductBulkActionsProps {
     allProducts: Product[];
@@ -12,6 +13,7 @@ interface UseProductBulkActionsProps {
     statusOptions: { value: ProductStatus; labelEn: string; labelSr: string }[];
     auctions: any[];
     updateAuction: (id: number, data: any) => void;
+    onSuccess?: () => void;
 }
 
 export const useProductBulkActions = ({
@@ -20,13 +22,15 @@ export const useProductBulkActions = ({
     language,
     statusOptions,
     auctions,
-    updateAuction
+    updateAuction,
+    onSuccess,
 }: UseProductBulkActionsProps) => {
     const { toast } = useToast();
 
     const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
     const [activeBulkDialog, setActiveBulkDialog] = useState<ProductDialogKey | null>(null);
     const [bulkStatus, setBulkStatus] = useState<ProductStatus>("available");
+    const [isMutating, setIsMutating] = useState(false);
 
     const openBulkDialog = useCallback((key: ProductDialogKey) => setActiveBulkDialog(key), []);
     const closeBulkDialog = useCallback(() => setActiveBulkDialog(null), []);
@@ -55,6 +59,7 @@ export const useProductBulkActions = ({
 
     const handleBulkDeleteConfirm = useCallback(async () => {
         const deletable = getDeletableProducts();
+        setIsMutating(true);
         try {
             await Promise.all(deletable.map((id) => ProductService.deleteWithStorage(id)));
 
@@ -66,6 +71,7 @@ export const useProductBulkActions = ({
                         ? `${deletable.length} products deleted${skippedCount > 0 ? `, ${skippedCount} skipped (on auction)` : ""}.`
                         : `${deletable.length} proizvoda obrisano${skippedCount > 0 ? `, ${skippedCount} preskočeno (na aukciji)` : ""}.`,
             });
+            onSuccess?.();
         } catch (error) {
             console.error("Error bulk deleting products:", error);
             toast({
@@ -73,25 +79,27 @@ export const useProductBulkActions = ({
                 description: language === "en" ? "Failed to delete some products." : "Greška pri brisanju nekih proizvoda.",
                 variant: "destructive",
             });
+        } finally {
+            setIsMutating(false);
         }
         setSelectedProducts([]);
         closeBulkDialog();
     }, [getDeletableProducts, selectedProducts.length, language, toast, closeBulkDialog]);
 
     const handleBulkStatusConfirm = useCallback(async () => {
-        // Validation: Cannot change status of products with active bids
-        if (bulkStatus !== "on_auction") {
-            const productsWithBids = selectedProducts.filter(id => {
+        // New restriction: Block status change if any selected item is in active or upcoming auction, except for withdrawing
+        if (bulkStatus !== 'withdrawn') {
+            const activeProducts = selectedProducts.filter(id => {
                 const p = allProducts.find(pr => pr.id === id);
-                return p?.status === "on_auction" && p?.hasBids;
+                return p && isAuctionActiveOrUpcoming(p.auctionId, auctions) && p.status !== bulkStatus;
             });
 
-            if (productsWithBids.length > 0) {
+            if (activeProducts.length > 0) {
                 toast({
                     title: language === "en" ? "Cannot Change Status" : "Nije moguće promeniti status",
                     description: language === "en"
-                        ? `${productsWithBids.length} selected product(s) have active bids and cannot be removed from the auction.`
-                        : `${productsWithBids.length} izabrani/h proizvod/a ima aktivne ponude i ne može biti uklonjen/o sa aukcije.`,
+                        ? `${activeProducts.length} selected product(s) are in an active or upcoming auction and can only be withdrawn.`
+                        : `${activeProducts.length} izabrani/h proizvod/a je na aktivnoj ili predstojećoj aukciji i mogu se samo povući.`,
                     variant: "destructive",
                 });
                 return;
@@ -130,6 +138,7 @@ export const useProductBulkActions = ({
         }
 
         try {
+            setIsMutating(true);
             // Process removals from auctions if status is changing from on_auction
             if (bulkStatus !== "on_auction") {
                 const auctionUpdates: Record<number, number[]> = {};
@@ -174,6 +183,7 @@ export const useProductBulkActions = ({
                         ? `${selectedProducts.length} products status changed to ${statusLabelEn}.`
                         : `${selectedProducts.length} proizvoda je dobilo status ${statusLabelSr}.`,
             });
+            onSuccess?.();
         } catch (error) {
             console.error("Error bulk updating status:", error);
             toast({
@@ -181,6 +191,8 @@ export const useProductBulkActions = ({
                 description: language === "en" ? "Failed to update some products." : "Greška pri ažuriranju nekih proizvoda.",
                 variant: "destructive",
             });
+        } finally {
+            setIsMutating(false);
         }
         setSelectedProducts([]);
         closeBulkDialog();
@@ -225,6 +237,10 @@ export const useProductBulkActions = ({
                             setBulkStatus(val as ProductStatus);
                             openBulkDialog("bulkStatus");
                         },
+                        disabled: selectedProducts.some(id => {
+                            const p = allProducts.find(pr => pr.id === id);
+                            return p && isAuctionActiveOrUpcoming(p.auctionId, auctions) && opt.value !== 'withdrawn';
+                        })
                     })),
             },
         ];
@@ -255,5 +271,6 @@ export const useProductBulkActions = ({
         dropDownActions,
         showBar,
         totalNumSelected,
+        isMutating,
     };
 };

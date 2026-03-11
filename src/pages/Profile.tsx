@@ -67,7 +67,13 @@ const Profile = () => {
     }
   };
 
-  const { currentUser } = useAuth();
+  const { currentUser, userLoggedIn } = useAuth();
+
+  useEffect(() => {
+    if (!userLoggedIn) {
+      navigate("/");
+    }
+  }, [userLoggedIn, navigate]);
   const [profile, setProfile] = useState({
     firstName: "",
     lastName: "",
@@ -191,12 +197,6 @@ const Profile = () => {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Derived stats from real data
-  const stats = useMemo(() => [
-    { label: language === "en" ? "Total Bids" : "Ukupno Licitacija", value: userBids.length, icon: Gavel },
-    { label: language === "en" ? "Won Auctions" : "Dobijene Aukcije", value: userBids.filter(b => b.isWinning).length, icon: ShieldCheck },
-  ], [userBids, language]);
-
   // Map bids to UI data
   const bidHistory = useMemo(() => {
     return userBids.map(bid => {
@@ -233,6 +233,12 @@ const Profile = () => {
       };
     });
   }, [userBids, products, collections, collectionProducts, auctions, language]);
+
+  // Derived stats from real data
+  const stats = useMemo(() => [
+    { label: language === "en" ? "Total Bids" : "Ukupno Licitacija", value: userBids.length, icon: Gavel },
+    { label: language === "en" ? "Won Auctions" : "Dobijene Aukcije", value: bidHistory.filter(h => h.status === "won").length, icon: ShieldCheck },
+  ], [userBids.length, bidHistory, language]);
 
   // Group bids by lot
   const groupedBids = bidHistory.reduce<Record<string, typeof bidHistory>>((acc, bid) => {

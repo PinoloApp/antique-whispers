@@ -156,6 +156,24 @@ export const useCategoryForm = (language: "en" | "sr", categories: Category[]) =
                 }
             }
 
+            // Check for duplicate titles within the same category
+            const subTitlesEn = formData.subcategories.map(s => s.titleEn.trim().toLowerCase());
+            const subTitlesSr = formData.subcategories.map(s => s.titleSr.trim().toLowerCase());
+
+            const hasDuplicateEn = subTitlesEn.some((title, index) => subTitlesEn.indexOf(title) !== index);
+            const hasDuplicateSr = subTitlesSr.some((title, index) => subTitlesSr.indexOf(title) !== index);
+
+            if (hasDuplicateEn || hasDuplicateSr) {
+                toast({
+                    title: language === "en" ? "Duplicate Subcategory" : "Duplikat Podkategorije",
+                    description: language === "en"
+                        ? "Subcategory titles must be unique within the same category."
+                        : "Naslovi podkategorija moraju biti jedinstveni unutar iste kategorije.",
+                    variant: "destructive",
+                });
+                return;
+            }
+
             const categoryId = editingCategory ? formData.id : slugify(formData.titleEn);
             const categoryKey = editingCategory ? formData.key : `category.${slugify(formData.titleEn)}`;
 

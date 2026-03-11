@@ -3,6 +3,8 @@ import { Upload, X, Image as ImageIcon, GripVertical } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
+import { compressImage } from '@/utils/imageUtils';
+
 interface ImageDropzoneProps {
   images: string[];
   onChange: (images: string[]) => void;
@@ -30,13 +32,9 @@ const ImageDropzone = ({ images, onChange, maxImages = 5, error }: ImageDropzone
     if (!files) return;
     const remainingSlots = maxImages - images.length;
     const filesToProcess = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, remainingSlots);
-    
+
     Promise.all(
-      filesToProcess.map(file => new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(file);
-      }))
+      filesToProcess.map(file => compressImage(file))
     ).then(results => {
       onChange([...images, ...results].slice(0, maxImages));
     });
@@ -97,7 +95,7 @@ const ImageDropzone = ({ images, onChange, maxImages = 5, error }: ImageDropzone
       <label className="text-sm font-medium">
         {language === 'en' ? `Photos (${images.length}/${maxImages})` : `Slike (${images.length}/${maxImages})`}
       </label>
-      
+
       {images.length < maxImages && (
         <div
           onDragOver={handleDragOver}
@@ -105,8 +103,8 @@ const ImageDropzone = ({ images, onChange, maxImages = 5, error }: ImageDropzone
           onDrop={handleDrop}
           className={cn(
             "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
-            isDragging 
-              ? "border-primary bg-primary/10" 
+            isDragging
+              ? "border-primary bg-primary/10"
               : error
                 ? "border-destructive hover:border-destructive/70"
                 : "border-border hover:border-primary/50 hover:bg-muted/50"
@@ -123,13 +121,13 @@ const ImageDropzone = ({ images, onChange, maxImages = 5, error }: ImageDropzone
           <label htmlFor="image-upload" className="cursor-pointer">
             <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              {language === 'en' 
-                ? 'Drag & drop images here or click to browse' 
+              {language === 'en'
+                ? 'Drag & drop images here or click to browse'
                 : 'Prevucite slike ovde ili kliknite za pretragu'}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {language === 'en' 
-                ? `Max ${maxImages} images. Drag thumbnails to reorder.` 
+              {language === 'en'
+                ? `Max ${maxImages} images. Drag thumbnails to reorder.`
                 : `Maks. ${maxImages} slika. Prevucite sličice za promenu redosleda.`}
             </p>
           </label>
@@ -139,8 +137,8 @@ const ImageDropzone = ({ images, onChange, maxImages = 5, error }: ImageDropzone
       {images.length > 0 && (
         <div className="grid grid-cols-5 gap-2">
           {images.map((img, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               draggable
               onDragStart={(e) => handleItemDragStart(e, index)}
               onDragOver={(e) => handleItemDragOver(e, index)}
@@ -153,9 +151,9 @@ const ImageDropzone = ({ images, onChange, maxImages = 5, error }: ImageDropzone
                 dragOverIndex === index && dragIndex !== index && "border-primary ring-2 ring-primary/30"
               )}
             >
-              <img 
-                src={img} 
-                alt={`Preview ${index + 1}`} 
+              <img
+                src={img}
+                alt={`Preview ${index + 1}`}
                 className="w-full h-full object-cover pointer-events-none"
               />
               <div className="absolute top-1 left-1 flex items-center gap-0.5">

@@ -8,7 +8,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Product, Category } from "@/contexts/DataContext";
+import { Product, Category, Auction } from "@/contexts/DataContext";
+import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
 import {
     Select,
     SelectContent,
@@ -28,6 +29,7 @@ interface ProductMobileCardProps {
     onEdit: (product: Product) => void;
     onDelete: (id: number) => void;
     onStatusChange: (product: Product, newStatus: ProductStatus) => void;
+    auctions: Auction[];
 }
 
 export const ProductMobileCard: React.FC<ProductMobileCardProps> = ({
@@ -40,7 +42,10 @@ export const ProductMobileCard: React.FC<ProductMobileCardProps> = ({
     onEdit,
     onDelete,
     onStatusChange,
+    auctions,
 }) => {
+    const isLocked = isAuctionActiveOrUpcoming(product.auctionId, auctions);
+
     return (
         <div
             className={`bg-card border border-border rounded-lg p-4 space-y-4 ${isSelected ? "ring-2 ring-primary" : ""
@@ -94,19 +99,26 @@ export const ProductMobileCard: React.FC<ProductMobileCardProps> = ({
                 >
                     <SelectTrigger
                         className={`w-[140px] h-8 text-xs ${product.status === "available"
-                                ? "bg-green-500/20 text-green-600 border-green-500/30"
-                                : product.status === "sold"
-                                    ? "bg-red-500/20 text-red-600 border-red-500/30"
-                                    : product.status === "withdrawn"
-                                        ? "bg-blue-500/20 text-blue-600 border-blue-500/30"
-                                        : "bg-yellow-500/20 text-yellow-600 border-yellow-500/30"
+                            ? "bg-green-500/20 text-green-600 border-green-500/30"
+                            : product.status === "sold"
+                                ? "bg-red-500/20 text-red-600 border-red-500/30"
+                                : product.status === "withdrawn"
+                                    ? "bg-blue-500/20 text-blue-600 border-blue-500/30"
+                                    : "bg-yellow-500/20 text-yellow-600 border-yellow-500/30"
                             }`}
                     >
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                         {statusOptions.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value} disabled={opt.value === "on_auction"}>
+                            <SelectItem
+                                key={opt.value}
+                                value={opt.value}
+                                disabled={
+                                    opt.value === "on_auction" ||
+                                    (isLocked && opt.value !== "withdrawn" && opt.value !== product.status)
+                                }
+                            >
                                 {language === "en" ? opt.labelEn : opt.labelSr}
                             </SelectItem>
                         ))}

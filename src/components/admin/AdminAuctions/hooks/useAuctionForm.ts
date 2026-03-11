@@ -24,10 +24,10 @@ export const useAuctionForm = (
 
     const getInitialStartDateTime = () => {
         const now = new Date();
-        const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+        const thirtyMinsLater = new Date(now.getTime() + 30 * 60 * 1000);
         return {
-            date: format(oneHourLater, "yyyy-MM-dd"),
-            time: format(oneHourLater, "HH:mm")
+            date: format(thirtyMinsLater, "yyyy-MM-dd"),
+            time: format(thirtyMinsLater, "HH:mm")
         };
     };
 
@@ -80,14 +80,14 @@ export const useAuctionForm = (
             const now = new Date();
 
             // Skip past date check if already active
-            const isAlreadyActive = editingAuction?.status === "active";
+            const isAlreadyActive = editingAuction?.status === "active" || editingAuction?.status === "paused" || editingAuction?.status === "cancelled";
 
             if (!isAlreadyActive) {
-                const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-                if (startDT < oneHourLater) {
+                const fifteenMinsLater = new Date(now.getTime() + 15 * 60 * 1000);
+                if (startDT < fifteenMinsLater) {
                     return language === "en"
-                        ? "Start must be at least 1 hour from now"
-                        : "Početak mora biti barem sat vremena od sada";
+                        ? "Start must be at least 15 minutes from now"
+                        : "Početak mora biti barem 15 minuta od sada";
                 }
             }
         }
@@ -307,6 +307,7 @@ export const useAuctionForm = (
         setExpandedColCategories([]);
         setExpandedColSubcategories([]);
         setEditingAuction(null);
+        setLotsExpanded(false);
         setStepsExpanded(false);
         setCollectionsExpanded(false);
         setFormTouched({});
@@ -382,17 +383,16 @@ export const useAuctionForm = (
         const startDT = new Date(`${formData.startDate}T${formData.startTime}:00`);
         const endDT = new Date(`${formData.endDate}T${formData.endTime}:00`);
         const now = new Date();
-        const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+        const fifteenMinsLater = new Date(now.getTime() + 15 * 60 * 1000);
+        const isAlreadyActive = editingAuction?.status === "active" || editingAuction?.status === "paused" || editingAuction?.status === "cancelled";
 
-        const isAlreadyActive = editingAuction?.status === "active";
-
-        if (!isAlreadyActive && startDT < oneHourLater) {
+        if (!isAlreadyActive && startDT < fifteenMinsLater) {
             toast({
                 title: language === "en" ? "Invalid Start Period" : "Nevažeći Period Početka",
                 description:
                     language === "en"
-                        ? "Start must be at least 1 hour from now."
-                        : "Početak mora biti barem sat vremena od sada.",
+                        ? "Start must be at least 15 minutes from now."
+                        : "Početak mora biti barem 15 minuta od sada.",
                 variant: "destructive",
             });
             return;

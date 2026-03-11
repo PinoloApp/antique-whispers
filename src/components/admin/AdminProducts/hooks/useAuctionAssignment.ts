@@ -13,6 +13,7 @@ export const useAuctionAssignment = (language: "en" | "sr") => {
     const [savedProductId, setSavedProductId] = useState<number | null>(null);
     const [categoryAuctions, setCategoryAuctions] = useState<Auction[]>([]);
     const [pendingAssignAuctionId, setPendingAssignAuctionId] = useState<number | null>(null);
+    const [isMutating, setIsMutating] = useState(false);
 
     const openAssignmentDialog = useCallback((key: AssignmentDialogKey) => setActiveAssignmentDialog(key), []);
     const closeAssignmentDialog = useCallback(() => {
@@ -45,6 +46,7 @@ export const useAuctionAssignment = (language: "en" | "sr") => {
 
     const handleAssignToAuction = async (auctionId: number) => {
         if (savedProductId === null) return;
+        setIsMutating(true);
 
         try {
             // Update product status to on_auction and set auctionId
@@ -56,7 +58,7 @@ export const useAuctionAssignment = (language: "en" | "sr") => {
             // Add product to auction's lotIds
             const auction = auctions.find((a) => a.id === auctionId);
             if (auction && !auction.lotIds.includes(savedProductId)) {
-                updateAuction(auctionId, { lotIds: [...auction.lotIds, savedProductId] });
+                await updateAuction(auctionId, { lotIds: [...auction.lotIds, savedProductId] });
             }
 
             toast({
@@ -73,6 +75,8 @@ export const useAuctionAssignment = (language: "en" | "sr") => {
                 description: language === "en" ? "Failed to assign to auction." : "Greška pri dodeljivanju aukciji.",
                 variant: "destructive",
             });
+        } finally {
+            setIsMutating(false);
         }
 
         closeAssignmentDialog();
@@ -93,5 +97,6 @@ export const useAuctionAssignment = (language: "en" | "sr") => {
         handleAssignToAuction,
         handleSkipAuctionAssign,
         auctions,
+        isMutating,
     };
 };

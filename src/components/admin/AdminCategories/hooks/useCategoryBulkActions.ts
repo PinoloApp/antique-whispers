@@ -9,16 +9,17 @@ import { CategoryDialogKey } from "../config/categoryDialogTypes";
 interface UseCategoryBulkActionsProps {
     categories: Category[];
     language: "en" | "sr";
+    onSuccess?: () => void;
 }
 
-export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulkActionsProps) => {
+export const useCategoryBulkActions = ({ categories, language, onSuccess }: UseCategoryBulkActionsProps) => {
     const { auctions, products, collections } = useData();
     const { toast } = useToast();
 
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [selectedInactiveCategories, setSelectedInactiveCategories] = useState<string[]>([]);
     const [activeBulkDialog, setActiveBulkDialog] = useState<CategoryDialogKey | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isMutating, setIsMutating] = useState(false);
 
     const openBulkDialog = (type: CategoryDialogKey) => setActiveBulkDialog(type);
     const closeBulkDialog = () => setActiveBulkDialog(null);
@@ -91,7 +92,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
     const confirmBulkDeactivate = async () => {
         const deactivatable = getDeactivatableCategories();
 
-        setIsSubmitting(true);
+        setIsMutating(true);
         try {
             const activeIds = deactivatable.filter((id) => {
                 const category = categories.find((c) => c.id === id);
@@ -110,6 +111,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
             });
             setSelectedCategories([]);
             closeBulkDialog();
+            onSuccess?.();
         } catch (error) {
             console.error("Error bulk deactivating categories:", error);
             toast({
@@ -118,7 +120,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
                 variant: "destructive",
             });
         } finally {
-            setIsSubmitting(false);
+            setIsMutating(false);
         }
     };
 
@@ -128,7 +130,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
     };
 
     const confirmBulkActivate = async () => {
-        setIsSubmitting(true);
+        setIsMutating(true);
         try {
             const inactiveIds = selectedInactiveCategories.filter((id) => {
                 const category = categories.find((c) => c.id === id);
@@ -144,6 +146,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
             });
             setSelectedInactiveCategories([]);
             closeBulkDialog();
+            onSuccess?.();
         } catch (error) {
             console.error("Error bulk activating categories:", error);
             toast({
@@ -152,7 +155,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
                 variant: "destructive",
             });
         } finally {
-            setIsSubmitting(false);
+            setIsMutating(false);
         }
     };
 
@@ -180,7 +183,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
     const confirmBulkDelete = async () => {
         const deletable = getDeletableCategories();
 
-        setIsSubmitting(true);
+        setIsMutating(true);
         try {
             await Promise.all(deletable.map((id) => CategoryService.delete(id)));
             const deletedCount = deletable.length;
@@ -198,6 +201,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
             setSelectedCategories([]);
             setSelectedInactiveCategories([]);
             closeBulkDialog();
+            onSuccess?.();
         } catch (error) {
             console.error("Error bulk deleting categories:", error);
             toast({
@@ -206,7 +210,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
                 variant: "destructive",
             });
         } finally {
-            setIsSubmitting(false);
+            setIsMutating(false);
         }
     };
 
@@ -248,7 +252,7 @@ export const useCategoryBulkActions = ({ categories, language }: UseCategoryBulk
     }, [selectedCategories.length, selectedInactiveCategories.length, language]);
 
     return {
-        isSubmitting,
+        isMutating,
         showBar,
         totalSelected,
         bulkActions,

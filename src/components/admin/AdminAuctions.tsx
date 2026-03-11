@@ -42,7 +42,7 @@ const AdminAuctions = () => {
     statusOptions,
   });
 
-  const { allAuctions, loading } = filterSortHook;
+  const { allAuctions, loading, refresh } = filterSortHook;
 
   const auctionActions = useAuctionActions({
     language,
@@ -53,6 +53,7 @@ const AdminAuctions = () => {
     getProductBids,
     collections,
     products,
+    onSuccess: refresh,
   });
 
   const auctionForm = useAuctionForm(
@@ -107,7 +108,7 @@ const AdminAuctions = () => {
           products={products}
           collections={collections}
           collectionProducts={collectionProducts}
-          isSubmitting={auctionActions.isSubmitting}
+          isMutating={auctionActions.isMutating}
           {...auctionForm}
         />
       </TitleHeader>

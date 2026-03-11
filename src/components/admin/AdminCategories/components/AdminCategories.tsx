@@ -23,11 +23,11 @@ const AdminCategories = () => {
   const standaloneLots = products.filter((p) => !collectionProductIds.has(p.id));
 
   const filterSortHook = useServerPaginatedCategories({ language });
-  const { allCategories } = filterSortHook;
+  const { allCategories, refresh } = filterSortHook;
 
   const formHook = useCategoryForm(language, allCategories);
-  const bulkActionsHook = useCategoryBulkActions({ categories: allCategories, language });
-  const actionsHook = useCategoryActions(language, allCategories);
+  const bulkActionsHook = useCategoryBulkActions({ categories: allCategories, language, onSuccess: refresh });
+  const actionsHook = useCategoryActions(language, allCategories, refresh);
 
   const { handleEdit, setIsOpen } = formHook;
 

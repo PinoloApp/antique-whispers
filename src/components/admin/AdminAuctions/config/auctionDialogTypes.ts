@@ -4,8 +4,7 @@ export type StaticDialogKey =
     | "delete"
     | "pause"
     | "cancel"
-    | "resume"
-    | "reactivate";
+    | "resume";
 
 export type DynamicDialogKey =
     | "create"

@@ -1,15 +1,21 @@
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import logoAukcije from "@/assets/logoAukcije.svg";
+import { useAuth } from "@/contexts/authContexts";
 
 const Footer = () => {
   const { t, language } = useLanguage();
+  const { userLoggedIn, isAdmin } = useAuth();
 
   const quickLinks = [
     { key: "nav.home", href: "/" },
     { key: "footer.faq", href: "/faq" },
     { key: "footer.contact", href: "/contact" },
   ];
+
+  if (userLoggedIn && !isAdmin) {
+    quickLinks.push({ key: "nav.notifications", href: "/notifications" });
+  }
 
   const legalLinks = [
     { key: "footer.terms", href: "/terms" },

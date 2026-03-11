@@ -1,5 +1,5 @@
 import React from "react";
-import { Product, Category, ProductStatus } from "@/contexts/DataContext";
+import { Product, Category, ProductStatus, Auction } from "@/contexts/DataContext";
 import { useServerPaginatedProducts } from "../hooks/useServerPaginatedProducts";
 import { useProductBulkActions } from "../hooks/useProductBulkActions";
 import { ProductMobileCard } from "./ProductMobileCard";
@@ -21,6 +21,7 @@ interface ProductListProps {
     categories: Category[];
     statusOptions: { value: ProductStatus; labelEn: string; labelSr: string }[];
     language: "en" | "sr";
+    auctions: Auction[];
 }
 
 export const ProductList: React.FC<ProductListProps> = ({
@@ -32,6 +33,7 @@ export const ProductList: React.FC<ProductListProps> = ({
     categories,
     statusOptions,
     language,
+    auctions,
 }) => {
     const { t } = useLanguage();
     const { handleDeleteClick, handleInlineStatusChange } = actionsHook;
@@ -99,6 +101,7 @@ export const ProductList: React.FC<ProductListProps> = ({
                         onEdit={handleEdit}
                         onDelete={handleDeleteClick}
                         onStatusChange={handleInlineStatusChange}
+                        auctions={auctions}
                     />
                 ))}
             </div>
@@ -122,6 +125,7 @@ export const ProductList: React.FC<ProductListProps> = ({
                             onEdit={handleEdit}
                             onDelete={handleDeleteClick}
                             onStatusChange={handleInlineStatusChange}
+                            auctions={auctions}
                         />
                     ))}
                 </tbody>

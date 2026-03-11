@@ -16,7 +16,7 @@ export const UserDialogs: React.FC<UserDialogsProps> = ({ language }) => {
     const dialogConfig = buildUserDialogConfig(language, actions);
 
     const handleOpenChange = (open: boolean) => {
-        if (!open) {
+        if (!open && !actions.isMutating) {
             dialogState.close();
         }
     };

@@ -12,7 +12,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PlayCircle, Pause, Clock } from "lucide-react";
+import { PlayCircle, Pause, Clock, Loader2 } from "lucide-react";
 import { useAuctionAssignment } from "../hooks/useAuctionAssignment";
 
 interface AuctionAssignmentDialogsProps {
@@ -114,13 +114,17 @@ export function AuctionAssignmentDialogs({ language, auctionHook }: AuctionAssig
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => openAssignmentDialog("selectAuction")}>{language === "en" ? "Back" : "Nazad"}</AlertDialogCancel>
+                        <AlertDialogCancel disabled={auctionHook.isMutating} onClick={() => openAssignmentDialog("selectAuction")}>{language === "en" ? "Back" : "Nazad"}</AlertDialogCancel>
                         <AlertDialogAction
+                            disabled={auctionHook.isMutating}
                             onClick={() => {
                                 if (pendingAssignAuctionId !== null) handleAssignToAuction(pendingAssignAuctionId);
                             }}
                         >
-                            {language === "en" ? "Yes, assign" : "Da, pridruži"}
+                            {auctionHook.isMutating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            {auctionHook.isMutating
+                                ? (language === "en" ? "Assigning..." : "Dodeljivanje...")
+                                : (language === "en" ? "Yes, assign" : "Da, pridruži")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -61,6 +61,7 @@ export const ProductDialogs: React.FC<ProductDialogsProps> = ({
             actionClassName={currentConfig?.actionClassName}
             cancelText={currentConfig?.cancelText}
             icon={currentConfig?.icon}
+            isMutating={actionsHook.isMutating || bulkActionsHook.isMutating}
         />
     );
 };

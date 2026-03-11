@@ -2,6 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2 } from "lucide-react";
 import { useCategoryActions } from "../hooks/useCategoryActions";
 import { useCategoryBulkActions } from "../hooks/useCategoryBulkActions";
 import { Category } from "@/contexts/DataContext";
@@ -33,7 +34,7 @@ export const CategoryDialogs: React.FC<CategoryDialogsProps> = ({
     const {
         activeBulkDialog,
         closeBulkDialog,
-        isSubmitting,
+        isMutating: isBulkMutating,
     } = bulkActionsHook;
 
     const dialogConfig = buildCategoryDialogConfig(language, actionsHook, bulkActionsHook);
@@ -43,7 +44,7 @@ export const CategoryDialogs: React.FC<CategoryDialogsProps> = ({
     const currentConfig = currentDialogKey && dialogConfig[currentDialogKey] ? dialogConfig[currentDialogKey] : null;
 
     const handleOpenChange = (open: boolean) => {
-        if (!open && !isSubmitting) {
+        if (!open && !actionsHook.isMutating && !isBulkMutating) {
             if (activeBulkDialog) closeBulkDialog();
             if (activeDialog) closeDialog();
         }
@@ -61,7 +62,7 @@ export const CategoryDialogs: React.FC<CategoryDialogsProps> = ({
                 actionText={currentConfig?.actionText || ""}
                 actionClassName={currentConfig?.actionClassName}
                 cancelText={currentConfig?.cancelText}
-                isMutating={isSubmitting}
+                isMutating={actionsHook.isMutating || isBulkMutating}
                 icon={currentConfig?.icon}
             />
 
@@ -92,11 +93,14 @@ export const CategoryDialogs: React.FC<CategoryDialogsProps> = ({
                             </SelectContent>
                         </Select>
                         <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => closeDialog()}>
+                            <Button variant="outline" onClick={() => closeDialog()} disabled={actionsHook.isMutating}>
                                 {language === "en" ? "Cancel" : "Otkaži"}
                             </Button>
-                            <Button onClick={confirmMoveSubcategory} disabled={!targetCategoryId || isSubmitting}>
-                                {language === "en" ? "Move" : "Premesti"}
+                            <Button onClick={confirmMoveSubcategory} disabled={!targetCategoryId || actionsHook.isMutating}>
+                                {actionsHook.isMutating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                {actionsHook.isMutating
+                                    ? (language === "en" ? "Moving..." : "Premeštanje...")
+                                    : (language === "en" ? "Move" : "Premesti")}
                             </Button>
                         </div>
                     </div>

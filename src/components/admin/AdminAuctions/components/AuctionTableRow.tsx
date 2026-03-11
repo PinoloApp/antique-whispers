@@ -229,33 +229,19 @@ export const AuctionTableRow: React.FC<AuctionTableRowProps> = ({
                                     </DropdownMenuItem>
                                 </>
                             )}
-                            {auction.status === "cancelled" && (
+                            <>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        auctionActions.handleReactivateClick(auction.id);
+                                        auctionActions.handleDeleteClick(auction.id);
                                     }}
-                                    className="text-green-600"
+                                    className="text-destructive"
                                 >
-                                    <RotateCcw className="w-4 h-4 mr-2" />
-                                    {language === "en" ? "Reactivate" : "Reaktiviraj"}
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    {language === "en" ? "Delete" : "Obriši"}
                                 </DropdownMenuItem>
-                            )}
-                            {auction.status !== "cancelled" && (
-                                <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            auctionActions.handleDeleteClick(auction.id);
-                                        }}
-                                        className="text-destructive"
-                                    >
-                                        <Trash2 className="w-4 h-4 mr-2" />
-                                        {language === "en" ? "Delete" : "Obriši"}
-                                    </DropdownMenuItem>
-                                </>
-                            )}
+                            </>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </td>

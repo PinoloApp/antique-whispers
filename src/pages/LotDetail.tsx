@@ -7,7 +7,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import BidForm from "@/components/BidForm";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Heart, ArrowLeft, CircleDot, Bookmark, Hash } from "lucide-react";
+import { Heart, ArrowLeft, CircleDot, Bookmark, Hash, Check } from "lucide-react";
 import AuthDialog from "@/components/AuthDialog";
 import { useAuth } from "@/contexts/authContexts";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,8 @@ const LotDetail = () => {
   const auction = product ? auctions.find((a) => a.id === product.auctionId) : null;
 
   const favorited = product ? isFavorite(product.id) : false;
+  const startingPrice = product?.startingPrice || 0;
+  const hasBids = product ? (!!product.hasBids || product.currentBid > startingPrice) : false;
 
   const handleFavoriteClick = () => {
     setShowConfirm(true);
@@ -266,6 +268,12 @@ const LotDetail = () => {
             <div className="bg-muted/50 rounded-lg p-6">
               <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">{t("products.currentBid")}</p>
               <p className="text-4xl font-serif font-bold text-gold">€{(product.currentBid || 0).toLocaleString()}</p>
+              {hasBids && (
+                <div className="mt-3 flex items-center gap-1.5 text-green-600 font-medium text-sm">
+                  <Check className="w-4 h-4" />
+                  {language === "en" ? "Starting price reached" : "Početna cena ostvarena"}
+                </div>
+              )}
             </div>
 
             {/* Bid Form */}

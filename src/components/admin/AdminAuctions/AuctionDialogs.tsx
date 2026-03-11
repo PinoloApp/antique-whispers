@@ -21,7 +21,7 @@ export const AuctionDialogs: React.FC<AuctionDialogsProps> = ({ language, action
         addBidFormData,
         setAddBidFormData,
         handleAddLiveBidClick,
-        isSubmitting,
+        isMutating,
     } = actions;
 
     const dialogConfig = buildDialogConfig(language, actions, auctionForm);
@@ -33,20 +33,20 @@ export const AuctionDialogs: React.FC<AuctionDialogsProps> = ({ language, action
             {/* Generic ReusableAlertDialog Renderer */}
             <ReusableAlertDialog
                 open={!!currentConfig}
-                onOpenChange={(open) => !open && !isSubmitting && closeDialog()}
+                onOpenChange={(open) => !open && !isMutating && closeDialog()}
                 title={currentConfig?.title || ""}
                 description={currentConfig?.description || ""}
                 onAction={currentConfig?.onAction || (() => { })}
                 actionText={currentConfig?.actionText || ""}
                 actionClassName={currentConfig?.actionClassName}
                 cancelText={currentConfig?.cancelText}
-                isMutating={isSubmitting}
+                isMutating={isMutating}
             />
 
             {/* Custom Dialogs (addBid) */}
             <Dialog
                 open={activeDialog === "addBid"}
-                onOpenChange={(open) => !open && !isSubmitting && closeDialog()}
+                onOpenChange={(open) => !open && !isMutating && closeDialog()}
             >
                 <DialogContent className="max-w-md" aria-describedby={undefined}>
                     <DialogHeader>
@@ -69,7 +69,7 @@ export const AuctionDialogs: React.FC<AuctionDialogsProps> = ({ language, action
                                 value={addBidFormData.bidderName}
                                 onChange={(e) => setAddBidFormData({ ...addBidFormData, bidderName: e.target.value })}
                                 placeholder={language === "en" ? "e.g. John Smith" : "npr. Petar Perić"}
-                                disabled={isSubmitting}
+                                disabled={isMutating}
                             />
                         </div>
                         <div>
@@ -79,7 +79,7 @@ export const AuctionDialogs: React.FC<AuctionDialogsProps> = ({ language, action
                                 value={addBidFormData.bidderEmail}
                                 onChange={(e) => setAddBidFormData({ ...addBidFormData, bidderEmail: e.target.value })}
                                 placeholder={language === "en" ? "Optional" : "Opciono"}
-                                disabled={isSubmitting}
+                                disabled={isMutating}
                             />
                         </div>
                         <div>
@@ -92,16 +92,16 @@ export const AuctionDialogs: React.FC<AuctionDialogsProps> = ({ language, action
                                 onChange={(e) => setAddBidFormData({ ...addBidFormData, amount: e.target.value })}
                                 placeholder={language === "en" ? "Enter bid amount" : "Unesite iznos ponude"}
                                 min="1"
-                                disabled={isSubmitting}
+                                disabled={isMutating}
                             />
                         </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => closeDialog()} disabled={isSubmitting}>
+                        <Button variant="outline" onClick={() => closeDialog()} disabled={isMutating}>
                             {language === "en" ? "Cancel" : "Otkaži"}
                         </Button>
-                        <Button onClick={handleAddLiveBidClick} className="gap-2" disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radio className="w-4 h-4" />}
+                        <Button onClick={handleAddLiveBidClick} className="gap-2" disabled={isMutating}>
+                            {isMutating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radio className="w-4 h-4" />}
                             {language === "en" ? "Add Live Bid" : "Dodaj Live Ponudu"}
                         </Button>
                     </div>

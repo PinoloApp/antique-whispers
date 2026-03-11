@@ -94,21 +94,5 @@ export const DIALOG_I18N: DialogI18n = {
             actionClassName: "bg-green-600 hover:bg-green-700",
             cancelText: "Ipak, ne"
         }
-    },
-    reactivate: {
-        en: {
-            title: "Reactivate Auction?",
-            description: "This will reactivate the cancelled auction and set it back to 'Upcoming' status. All lots will be marked as 'On Auction' again.",
-            actionText: "Yes, reactivate",
-            actionClassName: "bg-green-600 hover:bg-green-700",
-            cancelText: "No, cancel"
-        },
-        sr: {
-            title: "Reaktivirati Aukciju?",
-            description: "Ovo će reaktivirati otkazanu aukciju i vratiti je u status 'Predstojeća'. Svi lotovi će ponovo dobiti status 'Na aukciji'.",
-            actionText: "Da, reaktiviraj",
-            actionClassName: "bg-green-600 hover:bg-green-700",
-            cancelText: "Ipak, ne"
-        }
     }
 };

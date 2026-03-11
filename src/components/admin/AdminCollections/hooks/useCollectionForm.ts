@@ -6,6 +6,8 @@ import { CollectionService } from "@/services/collectionService";
 import { CollectionProductService } from "@/services/collectionProductService";
 import { ref, uploadString, getDownloadURL, deleteObject, listAll } from "firebase/storage";
 import { storage } from "@/firebase/firebase";
+import { getNextLotNumber } from "@/utils/lotUtils";
+import { compressImage } from "@/utils/imageUtils";
 
 export interface InlineLot {
     tempId: string;
@@ -16,7 +18,7 @@ export interface InlineLot {
     image: string;
 }
 
-export const useCollectionForm = (language: "en" | "sr", allCollections: Collection[]) => {
+export const useCollectionForm = (language: "en" | "sr", allCollections: Collection[], allProducts: Product[]) => {
     const [collectionProducts, setCollectionProducts] = useState<Product[]>([]);
 
     useEffect(() => {
@@ -134,20 +136,22 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
         setInlineLots((prev) => prev.filter((l) => l.tempId !== tempId));
     };
 
-    const handleLotImageUpload = (tempId: string, file: File) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            if (e.target?.result) updateInlineLot(tempId, "image", e.target.result as string);
-        };
-        reader.readAsDataURL(file);
+    const handleLotImageUpload = async (tempId: string, file: File) => {
+        try {
+            const compressed = await compressImage(file);
+            updateInlineLot(tempId, "image", compressed);
+        } catch (error) {
+            console.error("Error compressing lot image:", error);
+        }
     };
 
-    const handleCollectionImageUpload = (file: File) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            if (e.target?.result) setCollectionImage(e.target.result as string);
-        };
-        reader.readAsDataURL(file);
+    const handleCollectionImageUpload = async (file: File) => {
+        try {
+            const compressed = await compressImage(file);
+            setCollectionImage(compressed);
+        } catch (error) {
+            console.error("Error compressing collection image:", error);
+        }
     };
 
     const uploadBase64Image = async (base64String: string, path: string): Promise<string> => {
@@ -221,11 +225,16 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
         }
         if (hasLotErrors) return;
 
-        // Check unique lot number in Firestore collections
-        const existingWithLot = allCollections.find(
-            (c) => c.lotNumber === formData.lotNumber.trim() && c.id !== editingCollection?.id
+        // Check unique lot number in Firestore collections and products
+        const lotTrimmed = formData.lotNumber.trim();
+        const existingInCollections = allCollections.some(
+            (c) => c.lotNumber === lotTrimmed && c.id !== editingCollection?.id
         );
-        if (existingWithLot) {
+        const existingInProducts = allProducts.some(
+            (p) => p.lot === lotTrimmed
+        );
+
+        if (existingInCollections || existingInProducts) {
             toast({
                 title: language === "en" ? "Duplicate Lot Number" : "Duplikat Broja Lota",
                 description: language === "en" ? "This lot number is already in use." : "Ovaj broj lota je već u upotrebi.",
@@ -260,6 +269,7 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
     };
 
     const handleCreateConfirm = async () => {
+        setCreateDialogOpen(false);
         if (isSubmitting) return; // Prevent concurrent submissions
         if (pendingCollectionData) {
             setIsSubmitting(true);
@@ -348,6 +358,7 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
     };
 
     const handleUpdateConfirm = async () => {
+        setUpdateDialogOpen(false);
         if (isSubmitting) return; // Prevent concurrent submissions
         if (pendingCollectionData && editingCollection) {
             setIsSubmitting(true);
@@ -458,10 +469,21 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
         setPendingCollectionData(null);
     };
 
+    const toggleOpen = (open: boolean) => {
+        setIsOpen(open);
+        if (open && !editingCollection) {
+            const nextLot = getNextLotNumber(
+                allCollections.map(c => c.lotNumber),
+                allProducts.map(p => p.lot)
+            );
+            setFormData(prev => ({ ...prev, lotNumber: nextLot }));
+        }
+    };
+
     return {
         isSubmitting,
         isOpen,
-        setIsOpen,
+        setIsOpen: toggleOpen,
         editingCollection,
         setEditingCollection,
         formData,

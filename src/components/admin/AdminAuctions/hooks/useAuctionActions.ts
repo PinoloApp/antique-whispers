@@ -15,6 +15,7 @@ interface UseAuctionActionsProps {
     getProductBids: (id: number, auctionId: number) => any[];
     collections: any[];
     products: any[];
+    onSuccess?: () => void;
 }
 
 export const useAuctionActions = ({
@@ -26,10 +27,11 @@ export const useAuctionActions = ({
     getProductBids,
     collections,
     products,
+    onSuccess,
 }: UseAuctionActionsProps) => {
     const { toast } = useToast();
 
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isMutating, setIsMutating] = useState(false);
     const [activeDialog, setActiveDialog] = useState<string | null>(null);
 
     const openDialog = (type: string) => setActiveDialog(type);
@@ -41,7 +43,6 @@ export const useAuctionActions = ({
     const [auctionToPause, setAuctionToPause] = useState<number | null>(null);
     const [auctionToCancel, setAuctionToCancel] = useState<number | null>(null);
     const [auctionToResume, setAuctionToResume] = useState<number | null>(null);
-    const [auctionToReactivate, setAuctionToReactivate] = useState<number | null>(null);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
     const [pendingAuctionData, setPendingAuctionData] = useState<Auction | null>(null);
@@ -75,8 +76,9 @@ export const useAuctionActions = ({
     };
 
     const handleUpdateConfirm = async (editingAuction: Auction | null, closeForm: () => void, resetForm: () => void) => {
+        closeDialog();
         if (pendingAuctionData && editingAuction) {
-            setIsSubmitting(true);
+            setIsMutating(true);
             try {
                 // Update products that were removed from this auction
                 const previousLotIds = editingAuction.lotIds || [];
@@ -132,10 +134,11 @@ export const useAuctionActions = ({
                     title: language === "en" ? "Auction Updated" : "Aukcija Ažurirana",
                     description: language === "en" ? "The auction has been updated successfully." : "Aukcija je uspešno ažurirana.",
                 });
+                onSuccess?.();
                 closeForm();
                 resetForm();
             } finally {
-                setIsSubmitting(false);
+                setIsMutating(false);
             }
         }
         setUpdateDialogOpen(false);
@@ -143,8 +146,9 @@ export const useAuctionActions = ({
     };
 
     const handleCreateConfirm = async (closeForm: () => void, resetForm: () => void) => {
+        closeDialog();
         if (pendingAuctionData) {
-            setIsSubmitting(true);
+            setIsMutating(true);
             try {
                 // Update all selected products to be on_auction
                 pendingAuctionData.lotIds?.forEach((productId) => {
@@ -167,10 +171,11 @@ export const useAuctionActions = ({
                     title: language === "en" ? "Auction Created" : "Aukcija Kreirana",
                     description: language === "en" ? "The auction has been created successfully." : "Aukcija je uspešno kreirana.",
                 });
+                onSuccess?.();
                 closeForm();
                 resetForm();
             } finally {
-                setIsSubmitting(false);
+                setIsMutating(false);
             }
         }
         closeDialog();
@@ -179,12 +184,12 @@ export const useAuctionActions = ({
 
     const handleDeleteClick = (id: number) => {
         const auction = auctions.find(a => a.id === id);
-        if (auction?.status === "active") {
+        if (auction?.status === "active" || auction?.status === "upcoming") {
             toast({
                 title: language === "en" ? "Cannot Delete" : "Nije moguće obrisati",
                 description: language === "en"
-                    ? "Active auctions cannot be deleted. Please pause or cancel the auction first."
-                    : "Aktivne aukcije se ne mogu obrisati. Molimo vas da prvo pauzirate ili otkažete aukciju.",
+                    ? "Active or upcoming auctions cannot be deleted. Please pause or cancel the auction first."
+                    : "Aktivne ili predstojeće aukcije se ne mogu obrisati. Molimo vas da prvo pauzirate ili otkažete aukciju.",
                 variant: "destructive",
             });
             return;
@@ -194,13 +199,13 @@ export const useAuctionActions = ({
     };
 
     const handleDeleteConfirm = () => {
-        if (isSubmitting) return;
+        if (isMutating) return;
         openDialog("deleteSecond");
     };
 
     const handleDeleteFinalConfirm = async () => {
         if (auctionToDelete) {
-            setIsSubmitting(true);
+            setIsMutating(true);
             try {
                 const auction = auctions.find((a) => a.id === auctionToDelete);
                 if (auction) {
@@ -231,10 +236,11 @@ export const useAuctionActions = ({
                     title: language === "en" ? "Auction Deleted" : "Aukcija Obrisana",
                     description: language === "en" ? "The auction has been deleted." : "Aukcija je obrisana.",
                 });
+                onSuccess?.();
                 closeDialog();
                 setAuctionToDelete(null);
             } finally {
-                setIsSubmitting(false);
+                setIsMutating(false);
             }
         }
     };
@@ -296,7 +302,7 @@ export const useAuctionActions = ({
 
     const handleActivateConfirm = async () => {
         if (auctionToActivate) {
-            setIsSubmitting(true);
+            setIsMutating(true);
             try {
                 const auction = auctions.find((a) => a.id === auctionToActivate);
                 if (auction) {
@@ -307,11 +313,12 @@ export const useAuctionActions = ({
                         title: language === "en" ? "Auction Activated" : "Aukcija Aktivirana",
                         description: language === "en" ? "The auction is now active." : "Aukcija je sada aktivna.",
                     });
+                    onSuccess?.();
                 }
                 closeDialog();
                 setAuctionToActivate(null);
             } finally {
-                setIsSubmitting(false);
+                setIsMutating(false);
             }
         }
     };
@@ -323,7 +330,7 @@ export const useAuctionActions = ({
 
     const handleCloseConfirm = async () => {
         if (auctionToClose) {
-            setIsSubmitting(true);
+            setIsMutating(true);
             try {
                 const auction = auctions.find((a) => a.id === auctionToClose);
                 if (auction) {
@@ -356,11 +363,12 @@ export const useAuctionActions = ({
                         title: language === "en" ? "Auction Closed" : "Aukcija Zatvorena",
                         description: language === "en" ? "The auction has been closed." : "Aukcija je zatvorena.",
                     });
+                    onSuccess?.();
                 }
                 closeDialog();
                 setAuctionToClose(null);
             } finally {
-                setIsSubmitting(false);
+                setIsMutating(false);
             }
         }
     };
@@ -372,7 +380,7 @@ export const useAuctionActions = ({
 
     const handlePauseConfirm = async () => {
         if (auctionToPause) {
-            setIsSubmitting(true);
+            setIsMutating(true);
             try {
                 const auction = auctions.find((a) => a.id === auctionToPause);
                 if (auction) {
@@ -383,11 +391,12 @@ export const useAuctionActions = ({
                         title: language === "en" ? "Auction Paused" : "Aukcija Pauzirana",
                         description: language === "en" ? "The auction has been paused." : "Aukcija je pauzirana.",
                     });
+                    onSuccess?.();
                 }
                 closeDialog();
                 setAuctionToPause(null);
             } finally {
-                setIsSubmitting(false);
+                setIsMutating(false);
             }
         }
     };
@@ -399,7 +408,7 @@ export const useAuctionActions = ({
 
     const handleCancelConfirm = async () => {
         if (auctionToCancel) {
-            setIsSubmitting(true);
+            setIsMutating(true);
             try {
                 const auction = auctions.find((a) => a.id === auctionToCancel);
                 if (auction) {
@@ -429,11 +438,12 @@ export const useAuctionActions = ({
                         title: language === "en" ? "Auction Cancelled" : "Aukcija Otkazana",
                         description: language === "en" ? "The auction has been cancelled." : "Aukcija je otkazana.",
                     });
+                    onSuccess?.();
                 }
                 closeDialog();
                 setAuctionToCancel(null);
             } finally {
-                setIsSubmitting(false);
+                setIsMutating(false);
             }
         }
     };
@@ -445,7 +455,7 @@ export const useAuctionActions = ({
 
     const handleResumeConfirm = async () => {
         if (auctionToResume) {
-            setIsSubmitting(true);
+            setIsMutating(true);
             try {
                 const auction = auctions.find((a) => a.id === auctionToResume);
                 if (auction) {
@@ -460,62 +470,16 @@ export const useAuctionActions = ({
                         title: language === "en" ? "Auction Resumed" : "Aukcija Nastavljena",
                         description: language === "en" ? "The auction has been resumed." : "Aukcija je nastavljena.",
                     });
+                    onSuccess?.();
                 }
                 closeDialog();
                 setAuctionToResume(null);
             } finally {
-                setIsSubmitting(false);
+                setIsMutating(false);
             }
         }
     };
 
-    const handleReactivateClick = (id: number) => {
-        setAuctionToReactivate(id);
-        openDialog("reactivate");
-    };
-
-    const handleReactivateConfirm = async () => {
-        if (auctionToReactivate) {
-            setIsSubmitting(true);
-            try {
-                const auction = auctions.find((a) => a.id === auctionToReactivate);
-                if (auction) {
-                    auction.lotIds?.forEach((lotId) => {
-                        const product = products.find(p => p.id === lotId);
-                        updateProduct(lotId, {
-                            status: "on_auction",
-                            auctionId: auction.id,
-                            currentBid: product?.startingPrice || 0,
-                            hasBids: false
-                        });
-                    });
-                    auction.collectionIds?.forEach((colId) => {
-                        const collection = collections.find(c => c.id === colId);
-                        updateCollection(colId, {
-                            status: "on_auction",
-                            auctionId: auction.id,
-                            currentBid: collection?.startingPrice || 0,
-                            hasBids: false
-                        });
-                    });
-                    await AuctionService.update(auctionToReactivate, { status: "upcoming" });
-
-                    // Reschedule Cloud Tasks for the reactivated auction
-                    if (auction.startDate && auction.endDate) {
-                        await scheduleAuctionTasks(auction.id, auction.startDate, auction.endDate);
-                    }
-                    toast({
-                        title: language === "en" ? "Auction Reactivated" : "Aukcija Reaktivirana",
-                        description: language === "en" ? "The auction is now reactiveated." : "Aukcija je reaktivirana.",
-                    });
-                }
-                closeDialog();
-                setAuctionToReactivate(null);
-            } finally {
-                setIsSubmitting(false);
-            }
-        }
-    };
 
     const handleOpenAddBidDialog = (lotId: number, auctionId: number) => {
         const auction = auctions.find((a) => a.id === auctionId);
@@ -574,7 +538,7 @@ export const useAuctionActions = ({
 
     const handleConfirmAddLiveBid = async () => {
         if (!addBidLotId || !addBidAuctionId) return;
-
+        setIsMutating(true);
         const amount = parseFloat(addBidFormData.amount);
 
         try {
@@ -594,12 +558,15 @@ export const useAuctionActions = ({
                         ? `Live auction bid of €${amount.toLocaleString()} added successfully.`
                         : `Ponuda sa live aukcije od €${amount.toLocaleString()} uspešno dodata.`,
             });
+            onSuccess?.();
         } catch (error: any) {
             toast({
                 title: language === "en" ? "Error Adding Bid" : "Greška pri dodavanju ponude",
                 description: error.message || (language === "en" ? "Failed to add live bid." : "Neuspešno dodavanje live ponude."),
                 variant: "destructive",
             });
+        } finally {
+            setIsMutating(false);
         }
 
         closeDialog();
@@ -625,8 +592,6 @@ export const useAuctionActions = ({
         handleCancelConfirm,
         handleResumeClick,
         handleResumeConfirm,
-        handleReactivateClick,
-        handleReactivateConfirm,
         handleCreateConfirm,
         handleUpdateConfirm,
         addBidFormData,
@@ -636,6 +601,6 @@ export const useAuctionActions = ({
         handleConfirmAddLiveBid,
         pendingAuctionData,
         setPendingAuctionData,
-        isSubmitting,
+        isMutating,
     };
 };

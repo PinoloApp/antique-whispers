@@ -17,7 +17,6 @@ const getActionHandlers = (actions: AuctionActions): Record<StaticDialogKey, () 
     pause: actions.handlePauseConfirm,
     cancel: actions.handleCancelConfirm,
     resume: actions.handleResumeConfirm,
-    reactivate: actions.handleReactivateConfirm,
 });
 
 const getDynamicDialogConfigs = (

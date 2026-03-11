@@ -16,7 +16,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Category, Product, Collection, CollectionStatus } from "@/contexts/DataContext";
+import { Category, Product, Collection, CollectionStatus, Auction } from "@/contexts/DataContext";
+import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
 import {
     Select,
     SelectContent,
@@ -38,6 +39,7 @@ interface CollectionTableRowProps {
     onToggleExpand: (id: number) => void;
     onEdit: (collection: Collection) => void;
     onDelete: (id: number) => void;
+    auctions: Auction[];
 }
 
 export const CollectionTableRow = memo(
@@ -54,7 +56,9 @@ export const CollectionTableRow = memo(
         onToggleExpand,
         onEdit,
         onDelete,
+        auctions,
     }: CollectionTableRowProps) => {
+        const isLocked = isAuctionActiveOrUpcoming(collection.auctionId, auctions);
         return (
             <React.Fragment>
                 <tr className={`hover:bg-muted/30 transition-colors ${isSelected ? "bg-muted/50" : ""}`}>
@@ -103,7 +107,14 @@ export const CollectionTableRow = memo(
                             </SelectTrigger>
                             <SelectContent>
                                 {statusOptions.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value} disabled={opt.value === "on_auction"}>
+                                    <SelectItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                        disabled={
+                                            opt.value === "on_auction" ||
+                                            (isLocked && opt.value !== "withdrawn" && opt.value !== collection.status)
+                                        }
+                                    >
                                         {language === "en" ? opt.labelEn : opt.labelSr}
                                     </SelectItem>
                                 ))}

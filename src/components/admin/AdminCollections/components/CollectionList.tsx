@@ -8,7 +8,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Collection, Product, Category, CollectionStatus } from "@/contexts/DataContext";
+import { Collection, Product, Category, CollectionStatus, Auction } from "@/contexts/DataContext";
+import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useServerPaginatedCollections } from "../hooks/useServerPaginatedCollections";
 import { useCollectionBulkActions } from "../hooks/useCollectionBulkActions";
@@ -32,6 +33,7 @@ interface CollectionListProps {
     categories: Category[];
     statusOptions: { value: CollectionStatus; labelEn: string; labelSr: string }[];
     onStatusChange: (collection: Collection, newStatus: CollectionStatus) => void;
+    auctions: Auction[];
 }
 
 export const CollectionList: React.FC<CollectionListProps> = ({
@@ -47,6 +49,7 @@ export const CollectionList: React.FC<CollectionListProps> = ({
     categories,
     statusOptions,
     onStatusChange,
+    auctions,
 }) => {
     const { language, t } = useLanguage();
 
@@ -136,30 +139,42 @@ export const CollectionList: React.FC<CollectionListProps> = ({
                         <div className="grid grid-cols-2 gap-2 text-sm">
                             <div className="col-span-2">
                                 <span className="text-muted-foreground text-xs block mb-1">{language === "en" ? "Status:" : "Status:"}</span>{" "}
-                                <Select
-                                    value={collection.status}
-                                    onValueChange={(value) => onStatusChange(collection, value as CollectionStatus)}
-                                >
-                                    <SelectTrigger
-                                        className={`w-full h-8 text-xs ${collection.status === "available"
-                                            ? "bg-green-500/20 text-green-600 border-green-500/30"
-                                            : collection.status === "sold"
-                                                ? "bg-red-500/20 text-red-600 border-red-500/30"
-                                                : collection.status === "withdrawn"
-                                                    ? "bg-blue-500/20 text-blue-600 border-blue-500/30"
-                                                    : "bg-yellow-500/20 text-yellow-600 border-yellow-500/30"
-                                            }`}
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {statusOptions.map((opt) => (
-                                            <SelectItem key={opt.value} value={opt.value} disabled={opt.value === "on_auction"}>
-                                                {language === "en" ? opt.labelEn : opt.labelSr}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                {(() => {
+                                    const isLocked = isAuctionActiveOrUpcoming(collection.auctionId, auctions);
+                                    return (
+                                        <Select
+                                            value={collection.status}
+                                            onValueChange={(value) => onStatusChange(collection, value as CollectionStatus)}
+                                        >
+                                            <SelectTrigger
+                                                className={`w-full h-8 text-xs ${collection.status === "available"
+                                                    ? "bg-green-500/20 text-green-600 border-green-500/30"
+                                                    : collection.status === "sold"
+                                                        ? "bg-red-500/20 text-red-600 border-red-500/30"
+                                                        : collection.status === "withdrawn"
+                                                            ? "bg-blue-500/20 text-blue-600 border-blue-500/30"
+                                                            : "bg-yellow-500/20 text-yellow-600 border-yellow-500/30"
+                                                    }`}
+                                            >
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {statusOptions.map((opt) => (
+                                                    <SelectItem
+                                                        key={opt.value}
+                                                        value={opt.value}
+                                                        disabled={
+                                                            opt.value === "on_auction" ||
+                                                            (isLocked && opt.value !== "withdrawn" && opt.value !== collection.status)
+                                                        }
+                                                    >
+                                                        {language === "en" ? opt.labelEn : opt.labelSr}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    );
+                                })()}
                             </div>
                             <div>
                                 <span className="text-muted-foreground">{language === "en" ? "Starting:" : "Početna:"}</span>{" "}
@@ -208,6 +223,7 @@ export const CollectionList: React.FC<CollectionListProps> = ({
                                 onToggleExpand={toggleExpandCollection}
                                 onEdit={handleEdit}
                                 onDelete={handleDeleteClick}
+                                auctions={auctions}
                             />
                         );
                     })}

@@ -7,7 +7,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import BidForm from "@/components/BidForm";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Heart, ArrowLeft, Layers, Info, Package } from "lucide-react";
+import { Heart, ArrowLeft, Layers, Info, Package, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -71,6 +71,8 @@ const CollectionDetail = () => {
     : [];
 
   const favorited = collection ? isCollectionFavorite(collection.id) : false;
+  const startingPrice = collection?.startingPrice || 0;
+  const hasBids = collection ? (!!collection.hasBids || collection.currentBid > startingPrice) : false;
 
   const handleFavoriteClick = () => {
     setShowConfirm(true);
@@ -314,6 +316,12 @@ const CollectionDetail = () => {
               <p className="text-4xl font-serif font-bold text-gold">
                 €{(collection.currentBid || 0).toLocaleString()}
               </p>
+              {hasBids && (
+                <div className="mt-3 flex items-center gap-1.5 text-green-600 font-medium text-sm">
+                  <Check className="w-4 h-4" />
+                  {language === "en" ? "Starting price reached" : "Početna cena ostvarena"}
+                </div>
+              )}
             </div>
 
             {/* Bid Form */}

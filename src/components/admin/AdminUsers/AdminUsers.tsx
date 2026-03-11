@@ -30,7 +30,8 @@ const AdminUsersContent = ({ users }: { users: User[] }) => {
 
     const {
         selectedUsers, handleSelectUser, handleSelectAll, handleBulkBan, handleBulkUnban, handleBulkDelete, openBulkRoleChangeDialog,
-        openEditDialog, openBanDialog, openDeleteDialog, openRoleChangeDialog, openViewDialog, resetForm, dialogState
+        openEditDialog, openBanDialog, openDeleteDialog, openRoleChangeDialog, openViewDialog, resetForm, dialogState,
+        bannableUsersLength, unbannableUsersLength
     } = useAdminUsersContext();
 
     const allOnPageSelected = paginatedUsers.length > 0 && paginatedUsers.every((u) => selectedUsers.includes(u.id));
@@ -73,17 +74,17 @@ const AdminUsersContent = ({ users }: { users: User[] }) => {
             icon: Ban,
             label: t('ban'),
             action: bulkActionHandlers.handleBulkBan,
-            count: selectedUsers.length,
+            count: bannableUsersLength,
             className: "hover:bg-transparent hover:text-foreground",
-            visible: true
+            visible: bannableUsersLength > 0
         },
         {
             icon: CheckCircle,
             label: t('unban'),
             action: bulkActionHandlers.handleBulkUnban,
-            count: selectedUsers.length,
+            count: unbannableUsersLength,
             className: "hover:bg-transparent hover:text-foreground",
-            visible: true
+            visible: unbannableUsersLength > 0
         },
         {
             icon: Trash2,
@@ -91,7 +92,7 @@ const AdminUsersContent = ({ users }: { users: User[] }) => {
             action: bulkActionHandlers.handleBulkDelete,
             count: selectedUsers.length,
             className: "text-destructive hover:text-destructive hover:bg-transparent",
-            visible: true,
+            visible: selectedUsers.length > 0,
         },
     ];
 

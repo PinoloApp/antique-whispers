@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Trash2, Tag, CheckCircle2, DollarSign } from "lucide-react";
 import { CollectionService } from "@/services/collectionService";
 import { CollectionDialogKey } from "../config/collectionDialogTypes";
+import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
 
 interface UseCollectionBulkActionsProps {
     collections: Collection[];
@@ -11,6 +12,7 @@ interface UseCollectionBulkActionsProps {
     language: "en" | "sr";
     auctions: any[];
     updateAuction: (id: number, data: any) => void;
+    onSuccess?: () => void;
 }
 
 export const useCollectionBulkActions = ({
@@ -18,13 +20,15 @@ export const useCollectionBulkActions = ({
     paginatedCollections,
     language,
     auctions,
-    updateAuction
+    updateAuction,
+    onSuccess,
 }: UseCollectionBulkActionsProps) => {
     const { toast } = useToast();
 
     const [selectedCollections, setSelectedCollections] = useState<number[]>([]);
     const [activeBulkDialog, setActiveBulkDialog] = useState<CollectionDialogKey | null>(null);
     const [bulkStatus, setBulkStatus] = useState<CollectionStatus>("available");
+    const [isMutating, setIsMutating] = useState(false);
 
     const openBulkDialog = useCallback((key: CollectionDialogKey) => setActiveBulkDialog(key), []);
     const closeBulkDialog = useCallback(() => setActiveBulkDialog(null), []);
@@ -54,6 +58,7 @@ export const useCollectionBulkActions = ({
 
     const handleBulkDeleteConfirm = async () => {
         const deletable = getDeletableCollections();
+        setIsMutating(true);
         try {
             await Promise.all(deletable.map((id) => {
                 const col = collections.find((c) => c.id === id);
@@ -68,6 +73,7 @@ export const useCollectionBulkActions = ({
                         : `${deletable.length} kolekcija obrisano${skippedCount > 0 ? `, ${skippedCount} preskočeno (na aukciji)` : ""}.`,
             });
             setSelectedCollections([]);
+            onSuccess?.();
         } catch (error) {
             console.error("Bulk delete failed:", error);
             toast({
@@ -76,6 +82,7 @@ export const useCollectionBulkActions = ({
                 variant: "destructive",
             });
         } finally {
+            setIsMutating(false);
             closeBulkDialog();
         }
     };
@@ -87,19 +94,19 @@ export const useCollectionBulkActions = ({
             { value: "sold", labelEn: "Sold", labelSr: "Prodato" },
         ];
 
-        // Validation: Cannot change status of collections with active bids
-        if (bulkStatus !== "on_auction") {
-            const collectionsWithBids = selectedCollections.filter(id => {
+        // New restriction: Block status change if any selected item is in active or upcoming auction, except for withdrawing
+        if (bulkStatus !== 'withdrawn') {
+            const activeCollections = selectedCollections.filter(id => {
                 const col = collections.find(c => c.id === id);
-                return col?.status === "on_auction" && col?.hasBids;
+                return col && isAuctionActiveOrUpcoming(col.auctionId, auctions) && col.status !== bulkStatus;
             });
 
-            if (collectionsWithBids.length > 0) {
+            if (activeCollections.length > 0) {
                 toast({
                     title: language === "en" ? "Cannot Change Status" : "Nije moguće promeniti status",
                     description: language === "en"
-                        ? `${collectionsWithBids.length} selected collection(s) have active bids and cannot be removed from the auction.`
-                        : `${collectionsWithBids.length} izabrana/ih kolekcija ima aktivne ponude i ne može biti uklonjena sa aukcije.`,
+                        ? `${activeCollections.length} selected collection(s) are in an active or upcoming auction and can only be withdrawn.`
+                        : `${activeCollections.length} izabrane/ih kolekcija su na aktivnoj ili predstojećoj aukciji i mogu se samo povući.`,
                     variant: "destructive",
                 });
                 return;
@@ -137,6 +144,7 @@ export const useCollectionBulkActions = ({
             }
         }
 
+        setIsMutating(true);
         try {
             // Process removals from auctions if status is changing from on_auction
             if (bulkStatus !== "on_auction") {
@@ -178,6 +186,7 @@ export const useCollectionBulkActions = ({
                         : `${selectedCollections.length} kolekcija je dobilo status ${statusLabelSr}.`,
             });
             setSelectedCollections([]);
+            onSuccess?.();
         } catch (error) {
             console.error("Bulk status update failed:", error);
             toast({
@@ -186,6 +195,7 @@ export const useCollectionBulkActions = ({
                 variant: "destructive",
             });
         } finally {
+            setIsMutating(false);
             closeBulkDialog();
         }
     };
@@ -225,16 +235,23 @@ export const useCollectionBulkActions = ({
                 count: totalSelectedCount,
                 options: [
                     {
-                        icon: CheckCircle2,
                         label: language === "en" ? "Available" : "Dostupna",
                         value: "available",
                         action: handleStatusClick,
+                        disabled: selectedCollections.some(id => {
+                            const col = collections.find(c => c.id === id);
+                            return col && isAuctionActiveOrUpcoming(col.auctionId, auctions);
+                        })
                     },
                     {
                         icon: DollarSign,
                         label: language === "en" ? "Sold" : "Prodato",
                         value: "sold",
                         action: handleStatusClick,
+                        disabled: selectedCollections.some(id => {
+                            const col = collections.find(c => c.id === id);
+                            return col && isAuctionActiveOrUpcoming(col.auctionId, auctions);
+                        })
                     }
                 ]
             }
@@ -265,6 +282,7 @@ export const useCollectionBulkActions = ({
         dropDownActions,
         showBar,
         totalSelected,
+        isMutating,
         handleBulkDeleteClick,
     };
 };

@@ -7,7 +7,7 @@ import { useData } from "@/contexts/DataContext";
 import { useAuth } from "@/contexts/authContexts";
 import { useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Loader2, Lock } from "lucide-react";
 import { getFieldError, nameRules, emailRules, type ValidationRule, validators } from "@/lib/validation";
 import AuthDialog from "./AuthDialog";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -144,6 +144,15 @@ const BidForm = ({ productId, productName, currentBid, lotNumber, auctionId }: B
               : "Administratorski nalozi ne mogu učestvovati u licitaciji."}
           </p>
         </div>
+      ) : currentUser?.status === "banned" ? (
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-5 text-center flex flex-col items-center gap-3">
+          <Lock className="w-6 h-6 text-destructive" />
+          <p className="text-sm font-medium text-destructive leading-relaxed">
+            {language === "en"
+              ? "Your account has been suspended. Please contact support for assistance."
+              : "Vaš nalog je suspendovan. Molimo Vas da se obratite podršci za pomoć."}
+          </p>
+        </div>
       ) : !userLoggedIn ? (
         <AuthDialog
           defaultTab="login"
@@ -246,7 +255,7 @@ const BidForm = ({ productId, productName, currentBid, lotNumber, auctionId }: B
             </form>
           </DialogContent>
 
-          <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+          <AlertDialog open={showConfirm} onOpenChange={(open) => { if (!isSubmitting) setShowConfirm(open); }}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
@@ -259,10 +268,11 @@ const BidForm = ({ productId, productName, currentBid, lotNumber, auctionId }: B
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>
+                <AlertDialogCancel disabled={isSubmitting}>
                   {language === "en" ? "Cancel" : "Otkaži"}
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmBid} disabled={isSubmitting}>
+                <AlertDialogAction onClick={(e) => { e.preventDefault(); handleConfirmBid(); }} disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isSubmitting
                     ? (language === "en" ? "Placing Bid..." : "Licitiranje...")
                     : (language === "en" ? "Confirm Bid" : "Potvrdi Ponudu")}

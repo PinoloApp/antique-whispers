@@ -43,11 +43,12 @@ const AdminProducts = () => {
     auctions,
     statusOptions,
   });
-  const { allProducts } = filterSortHook;
+  const { allProducts, refresh } = filterSortHook;
 
   const auctionHook = useAuctionAssignment(language);
+  const { collections } = useData();
 
-  const formHook = useProductForm(language, {
+  const formHook = useProductForm(language, allProducts, collections, {
     onSuccessCreate: (product) => {
       auctionHook.checkCategoryAuctionsAndPrompt(product.id, product.category);
     },
@@ -66,6 +67,7 @@ const AdminProducts = () => {
     auctions,
     updateAuction,
     statusOptions,
+    onSuccess: refresh,
   });
 
   const displayProducts = filterSortHook.paginatedProducts;
@@ -76,7 +78,8 @@ const AdminProducts = () => {
     language,
     statusOptions,
     auctions,
-    updateAuction
+    updateAuction,
+    onSuccess: refresh,
   });
 
   if (filterSortHook.loading && filterSortHook.totalCount === 0 && filterSortHook.statusFilter === "all" && filterSortHook.categoryFilter === "all" && filterSortHook.auctionFilter === "all" && !filterSortHook.searchQuery.trim()) {
@@ -138,6 +141,7 @@ const AdminProducts = () => {
             categories={categories}
             statusOptions={statusOptions}
             language={language}
+            auctions={auctions}
           />
         </>
       )}

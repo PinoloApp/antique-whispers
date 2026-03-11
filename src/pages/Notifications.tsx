@@ -1,7 +1,10 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useAuth } from "@/contexts/authContexts";
 import { Bell, Gavel, TrendingUp, AlertCircle, CheckCircle, Info, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +14,14 @@ import { sr, enUS } from "date-fns/locale";
 const Notifications = () => {
   const { language } = useLanguage();
   const { notifications, unreadCount, markAllAsRead, markAsRead } = useNotifications();
+  const { userLoggedIn } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!userLoggedIn) {
+      navigate("/");
+    }
+  }, [userLoggedIn, navigate]);
 
   const iconMap = {
     bid_placed: <Gavel className="w-5 h-5 text-primary" />,
