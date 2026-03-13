@@ -3,6 +3,10 @@ import { Auction, useData } from "@/contexts/DataContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuctionForm } from "./useAuctionForm";
 import { AuctionService } from "@/services/auctionService";
+import { PaymentService } from "@/services/paymentService";
+import { CollectionProductService } from "@/services/collectionProductService";
+import { NotificationService } from "@/services/notificationService";
+import { UserService } from "@/services/userService";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase/firebase";
 
@@ -15,6 +19,7 @@ interface UseAuctionActionsProps {
     getProductBids: (id: number, auctionId: number) => any[];
     collections: any[];
     products: any[];
+    categories: any[];
     onSuccess?: () => void;
 }
 
@@ -27,6 +32,7 @@ export const useAuctionActions = ({
     getProductBids,
     collections,
     products,
+    categories,
     onSuccess,
 }: UseAuctionActionsProps) => {
     const { toast } = useToast();
@@ -83,40 +89,137 @@ export const useAuctionActions = ({
                 // Update products that were removed from this auction
                 const previousLotIds = editingAuction.lotIds || [];
                 const removedLotIds = previousLotIds.filter((id) => !pendingAuctionData.lotIds?.includes(id));
-                removedLotIds.forEach((productId) => {
+                for (const productId of removedLotIds) {
                     const product = products.find(p => p.id === productId);
                     updateProduct(productId, {
                         auctionId: 0,
-                        status: "available",
+                        status: "withdrawn",
                         currentBid: product?.startingPrice || 0,
-                        hasBids: false
+                        hasBids: false,
+                        lot: ""
                     });
-                });
 
-                // Update newly added products
-                const newLotIds = pendingAuctionData.lotIds?.filter((id) => !previousLotIds.includes(id)) || [];
-                newLotIds.forEach((productId) => {
-                    updateProduct(productId, { auctionId: pendingAuctionData.id, status: "on_auction" });
-                });
+                    // Notify interested users
+                    const interestedUserIds = await UserService.getInterestedUsers(productId);
+                    for (const userId of interestedUserIds) {
+                        await NotificationService.addNotification({
+                            userId,
+                            type: "info",
+                            title: "Lot povučen",
+                            titleEn: "Lot Withdrawn",
+                            description: `Lot '${product?.name || productId}' na kojem ste imali ponudu ili koji vam je bio u favoritima je povučen sa aukcije.`,
+                            descriptionEn: `Lot '${product?.name || productId}' that you bid on or had in favorites has been withdrawn from the auction.`,
+                            timestamp: new Date(),
+                            read: false,
+                            productId: productId
+                        });
+                    }
+                }
 
                 // Update collections that were removed from this auction
                 const previousCollectionIds = editingAuction.collectionIds || [];
                 const removedCollectionIds = previousCollectionIds.filter((id) => !pendingAuctionData.collectionIds?.includes(id));
-                removedCollectionIds.forEach((colId) => {
+                // Use a standard for loop to await CollectionProductService.update properly
+                for (const colId of removedCollectionIds) {
                     const collection = collections.find(c => c.id === colId);
                     updateCollection(colId, {
-                        status: "available",
+                        status: "withdrawn",
                         auctionId: 0,
                         currentBid: collection?.startingPrice || 0,
-                        hasBids: false
+                        hasBids: false,
+                        lotNumber: ""
                     });
-                });
 
-                // Update newly added collections
-                const newCollectionIds = pendingAuctionData.collectionIds?.filter((id) => !previousCollectionIds.includes(id)) || [];
-                newCollectionIds.forEach((colId) => {
-                    updateCollection(colId, { status: "on_auction", auctionId: pendingAuctionData.id });
-                });
+                    if (collection && collection.productIds) {
+                        for (const pid of collection.productIds) {
+                            await CollectionProductService.update(pid, { lot: "", catalogMark: "" });
+                        }
+                    }
+
+                    // Notify interested users
+                    const interestedUserIds = await UserService.getInterestedUsers(colId, true);
+                    for (const userId of interestedUserIds) {
+                        await NotificationService.addNotification({
+                            userId,
+                            type: "info",
+                            title: "Lot povučen",
+                            titleEn: "Lot Withdrawn",
+                            description: `Lot '${collection?.name[language] || colId}' na kojem ste imali ponudu ili koji vam je bio u favoritima je povučen sa aukcije.`,
+                            descriptionEn: `Lot '${collection?.name.en || colId}' that you bid on or had in favorites has been withdrawn from the auction.`,
+                            timestamp: new Date(),
+                            read: false,
+                            productId: colId
+                        });
+                    }
+                }
+                // --- Assign lot numbers to currently selected items ---
+                const selectedProducts = products.filter(p => pendingAuctionData.lotIds?.includes(p.id));
+                const selectedCollections = collections.filter(c => pendingAuctionData.collectionIds?.includes(c.id));
+
+                const currentLotIds = new Set(editingAuction.lotIds || []);
+                const currentColIds = new Set(editingAuction.collectionIds || []);
+
+                // 1. Identify existing items (already in the auction)
+                const existingItems = [
+                    ...selectedProducts.filter(p => currentLotIds.has(p.id)).map(p => ({ 
+                        type: 'product' as const, id: p.id, lot: parseInt(p.lot || "0", 10) 
+                    })),
+                    ...selectedCollections.filter(c => currentColIds.has(c.id)).map(c => ({ 
+                        type: 'collection' as const, id: c.id, lot: parseInt(c.lotNumber || "0", 10) 
+                    }))
+                ];
+
+                // 2. Identify new items (newly added to the auction)
+                const newItems = [
+                    ...selectedProducts.filter(p => !currentLotIds.has(p.id)).map(p => ({ 
+                        type: 'product' as const, id: p.id, category: p.category, productIds: [] as number[] 
+                    })),
+                    ...selectedCollections.filter(c => !currentColIds.has(c.id)).map(c => ({ 
+                        type: 'collection' as const, id: c.id, category: c.category, productIds: c.productIds || [] 
+                    }))
+                ];
+
+                // 3. Keep existing items' lot numbers as they are
+                for (const product of selectedProducts.filter(p => currentLotIds.has(p.id))) {
+                    updateProduct(product.id, { auctionId: pendingAuctionData.id, status: "on_auction" });
+                }
+                for (const col of selectedCollections.filter(c => currentColIds.has(c.id))) {
+                    updateCollection(col.id, { status: "on_auction", auctionId: pendingAuctionData.id });
+                }
+
+                // 4. Assign new lot numbers to new items starting from maxLot + 1
+                if (newItems.length > 0) {
+                    const maxLot = existingItems.length > 0 
+                        ? Math.max(...existingItems.map(i => i.lot), 0)
+                        : 0;
+
+                    const getCategoryIndex = (catId: string) => {
+                        const idx = categories.findIndex(c => c.id === catId);
+                        return idx === -1 ? 99999 : idx; // Unknown categories go last
+                    };
+
+                    // Sort new items by category for logical grouping within the new batch
+                    newItems.sort((a, b) => getCategoryIndex(a.category) - getCategoryIndex(b.category));
+
+                    let nextLotNumber = maxLot + 1;
+                    for (const item of newItems) {
+                        const lotString = nextLotNumber.toString();
+                        if (item.type === 'product') {
+                            updateProduct(item.id, { auctionId: pendingAuctionData.id, status: "on_auction", lot: lotString });
+                        } else if (item.type === 'collection') {
+                            updateCollection(item.id, { status: "on_auction", auctionId: pendingAuctionData.id, lotNumber: lotString });
+                            if (item.productIds && Array.isArray(item.productIds)) {
+                                for (let i = 0; i < item.productIds.length; i++) {
+                                    await CollectionProductService.update(item.productIds[i], {
+                                        lot: lotString,
+                                        catalogMark: `${lotString}-${i + 1}`
+                                    });
+                                }
+                            }
+                        }
+                        nextLotNumber++;
+                    }
+                }
 
                 await AuctionService.update(editingAuction.id, pendingAuctionData);
 
@@ -150,15 +253,41 @@ export const useAuctionActions = ({
         if (pendingAuctionData) {
             setIsMutating(true);
             try {
-                // Update all selected products to be on_auction
-                pendingAuctionData.lotIds?.forEach((productId) => {
-                    updateProduct(productId, { auctionId: pendingAuctionData.id, status: "on_auction" });
-                });
+                // --- Assign lot numbers to currently selected items sorted by Category ---
+                const selectedProducts = products.filter(p => pendingAuctionData.lotIds?.includes(p.id));
+                const selectedCollections = collections.filter(c => pendingAuctionData.collectionIds?.includes(c.id));
 
-                // Update all selected collections to be on_auction
-                pendingAuctionData.collectionIds?.forEach((colId) => {
-                    updateCollection(colId, { status: "on_auction", auctionId: pendingAuctionData.id });
-                });
+                const itemsToAssign = [
+                    ...selectedProducts.map(p => ({ type: 'product' as const, id: p.id, category: p.category, productIds: [] as number[] })),
+                    ...selectedCollections.map(c => ({ type: 'collection' as const, id: c.id, category: c.category, productIds: c.productIds || [] }))
+                ];
+
+                const getCategoryIndex = (catId: string) => {
+                    const idx = categories.findIndex(c => c.id === catId);
+                    return idx === -1 ? 99999 : idx; // Unknown categories go last
+                };
+
+                itemsToAssign.sort((a, b) => getCategoryIndex(a.category) - getCategoryIndex(b.category));
+
+                let currentLotNumber = 1;
+
+                for (const item of itemsToAssign) {
+                    const lotString = currentLotNumber.toString();
+                    if (item.type === 'product') {
+                        updateProduct(item.id, { auctionId: pendingAuctionData.id, status: "on_auction", lot: lotString });
+                    } else if (item.type === 'collection') {
+                        updateCollection(item.id, { status: "on_auction", auctionId: pendingAuctionData.id, lotNumber: lotString });
+                        if (item.productIds && Array.isArray(item.productIds)) {
+                            for (let i = 0; i < item.productIds.length; i++) {
+                                await CollectionProductService.update(item.productIds[i], {
+                                    lot: lotString,
+                                    catalogMark: `${lotString}-${i + 1}`
+                                });
+                            }
+                        }
+                    }
+                    currentLotNumber++;
+                }
 
                 await AuctionService.create(pendingAuctionData);
 
@@ -337,31 +466,77 @@ export const useAuctionActions = ({
                     // Cancel the completion task since we're closing manually
                     await cancelAuctionTasks(auctionToClose, false, true);
 
-                    auction.collectionIds?.forEach((colId) => {
-                        const collection = collections.find((c) => c.id === colId);
-                        if (collection) {
-                            const hasBids = collection.currentBid > collection.startingPrice;
-                            if (hasBids) {
-                                updateCollection(colId, { status: "sold" });
-                            } else {
-                                updateCollection(colId, { status: "available", auctionId: 0 });
+                    const wonDate = new Date().toISOString().split('T')[0];
+                    const deadlineDate = new Date();
+                    deadlineDate.setDate(deadlineDate.getDate() + 7);
+                    const paymentDeadline = deadlineDate.toISOString().split('T')[0];
+
+                    // Process Collections
+                    if (auction.collectionIds) {
+                        for (const colId of auction.collectionIds) {
+                            const collection = collections.find((c) => c.id === colId);
+                            if (collection) {
+                                const colBids = getProductBids(colId, auction.id);
+                                const winningBid = colBids.find(b => b.isWinning);
+
+                                if (winningBid) {
+                                    updateCollection(colId, { status: "sold" });
+                                    
+                                    // Create Payment for Collection
+                                    await PaymentService.create({
+                                        itemId: colId,
+                                        itemType: 'collection',
+                                        lotNumber: collection.lotNumber || `Coll #${colId}`,
+                                        lotName: collection.name,
+                                        auctionTitle: auction.title,
+                                        buyerName: winningBid.bidderName,
+                                        buyerEmail: winningBid.bidderEmail,
+                                        amount: winningBid.currentAmount,
+                                        status: 'pending',
+                                        wonDate,
+                                        paymentDeadline
+                                    });
+                                } else {
+                                    updateCollection(colId, { status: "available", auctionId: 0 });
+                                }
                             }
                         }
-                    });
+                    }
 
-                    auction.lotIds?.forEach((lotId) => {
-                        const lotBids = getProductBids(lotId, auction.id);
-                        if (lotBids.length > 0) {
-                            updateProduct(lotId, { status: "sold" });
-                        } else {
-                            updateProduct(lotId, { status: "available", auctionId: 0 });
+                    // Process Products
+                    if (auction.lotIds) {
+                        for (const lotId of auction.lotIds) {
+                            const product = products.find(p => p.id === lotId);
+                            const lotBids = getProductBids(lotId, auction.id);
+                            const winningBid = lotBids.find(b => b.isWinning);
+
+                            if (winningBid && product) {
+                                updateProduct(lotId, { status: "sold" });
+
+                                // Create Payment for Product
+                                await PaymentService.create({
+                                    itemId: lotId,
+                                    itemType: 'product',
+                                    lotNumber: product.lot || `Lot #${lotId}`,
+                                    lotName: { en: product.name, sr: product.namesr },
+                                    auctionTitle: auction.title,
+                                    buyerName: winningBid.bidderName,
+                                    buyerEmail: winningBid.bidderEmail,
+                                    amount: winningBid.currentAmount,
+                                    status: 'pending',
+                                    wonDate,
+                                    paymentDeadline
+                                });
+                            } else {
+                                updateProduct(lotId, { status: "available", auctionId: 0 });
+                            }
                         }
-                    });
+                    }
 
                     await AuctionService.update(auctionToClose, { status: "completed" });
                     toast({
                         title: language === "en" ? "Auction Closed" : "Aukcija Zatvorena",
-                        description: language === "en" ? "The auction has been closed." : "Aukcija je zatvorena.",
+                        description: language === "en" ? "The auction has been closed and winner payments have been generated." : "Aukcija je zatvorena i plaćanja za pobednike su generisana.",
                     });
                     onSuccess?.();
                 }

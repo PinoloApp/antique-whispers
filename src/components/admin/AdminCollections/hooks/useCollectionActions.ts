@@ -4,6 +4,9 @@ import { CollectionService } from "@/services/collectionService";
 import { useToast } from "@/hooks/use-toast";
 import { CollectionDialogKey } from "../config/collectionDialogTypes";
 import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
+import { NotificationService } from "@/services/notificationService";
+import { UserService } from "@/services/userService";
+import { PaymentService } from "@/services/paymentService";
 
 interface UseCollectionActionsProps {
     language: "en" | "sr";
@@ -28,6 +31,7 @@ export const useCollectionActions = ({
     const [activeDialog, setActiveDialog] = useState<CollectionDialogKey | null>(null);
     const [collectionToDelete, setCollectionToDelete] = useState<number | null>(null);
     const [pendingStatusChange, setPendingStatusChange] = useState<{ collection: Collection; newStatus: CollectionStatus } | null>(null);
+    const [directSaleOpen, setDirectSaleOpen] = useState(false);
     const [isMutating, setIsMutating] = useState(false);
 
     const openDialog = useCallback((key: CollectionDialogKey) => setActiveDialog(key), []);
@@ -35,6 +39,7 @@ export const useCollectionActions = ({
         setActiveDialog(null);
         setCollectionToDelete(null);
         setPendingStatusChange(null);
+        setDirectSaleOpen(false);
     }, []);
 
     const handleDeleteClick = useCallback((id: number) => {
@@ -106,7 +111,36 @@ export const useCollectionActions = ({
                     ? `Collection status changed to ${statusOptions.find((o) => o.value === newStatus)?.labelEn}.`
                     : `Status kolekcije promenjen u ${statusOptions.find((o) => o.value === newStatus)?.labelSr}.`,
             });
-            onSuccess?.();
+
+            // SEND NOTIFICATIONS IF WITHDRAWN
+            if (newStatus === "withdrawn") {
+                const parentAuction = auctions.find((a) => (a.collectionIds || []).includes(coll.id));
+                if (parentAuction) {
+                    const interestedUserIds = await UserService.getInterestedUsers(coll.id, true);
+                    const notificationPromises = interestedUserIds.map(userId =>
+                        NotificationService.addNotification({
+                            userId,
+                            type: "info",
+                            title: "Kolekcija povučena",
+                            titleEn: "Collection Withdrawn",
+                            description: `Kolekcija ${coll.lotNumber}: ${coll.name.sr} je povučena sa aukcije ${parentAuction.title.sr}.`,
+                            descriptionEn: `Collection ${coll.lotNumber}: ${coll.name.en} has been withdrawn from auction ${parentAuction.title.en}.`,
+                            timestamp: new Date(),
+                            read: false,
+                             productId: coll.id
+                         })
+                     );
+                     await Promise.all(notificationPromises);
+
+                     // REMOVE FROM FAVORITES
+                     const favoriters = await UserService.getInterestedUsers(coll.id, true);
+                     if (favoriters.length > 0) {
+                         await UserService.removeFromFavorites(coll.id, favoriters, true);
+                     }
+                 }
+             }
+
+             onSuccess?.();
         } catch (error) {
             console.error("Error updating status", error);
             toast({
@@ -120,12 +154,79 @@ export const useCollectionActions = ({
         closeDialog();
     }, [pendingStatusChange, auctions, updateAuction, language, statusOptions, toast, closeDialog]);
 
+    const handleDirectSaleConfirm = useCallback(async (data: {
+        firstName: string;
+        lastName: string;
+        email: string;
+        amount: number;
+    }) => {
+        if (!pendingStatusChange) return;
+        const { collection: coll } = pendingStatusChange;
+        setIsMutating(true);
+
+        try {
+            // 1. Update status to sold
+            await CollectionService.update(coll.id, {
+                status: "sold",
+                auctionId: 0,
+                hasBids: false
+            });
+
+            // 2. Create Payment
+            await PaymentService.create({
+                itemId: coll.id,
+                itemType: 'collection',
+                lotNumber: coll.lotNumber || `Coll #${coll.id}`,
+                lotName: coll.name,
+                auctionTitle: { en: "Direct Sale", sr: "Direktna prodaja" },
+                buyerName: `${data.firstName} ${data.lastName}`,
+                buyerEmail: data.email,
+                amount: data.amount,
+                status: 'pending',
+                wonDate: new Date().toISOString().split('T')[0],
+                paymentDeadline: new Date().toISOString().split('T')[0],
+            });
+
+            toast({
+                title: language === "en" ? "Sold & Payment Created" : "Prodato i Plaćanje Kreirano",
+                description: language === "en" 
+                    ? `Collection marked as sold to ${data.firstName} ${data.lastName}.`
+                    : `Kolekcija označena kao prodata kupcu ${data.firstName} ${data.lastName}.`,
+            });
+
+            onSuccess?.();
+            closeDialog();
+        } catch (error) {
+            console.error("Error in direct sale:", error);
+            toast({
+                title: language === "en" ? "Error" : "Greška",
+                description: language === "en" ? "Failed to process sale." : "Greška pri obradi prodaje.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsMutating(false);
+        }
+    }, [pendingStatusChange, language, toast, closeDialog, onSuccess]);
+
     const handleConfirmInlineStatusChange = useCallback(() => {
         if (!pendingStatusChange) return;
         const { collection: coll, newStatus } = pendingStatusChange;
 
+        // Block status change if collection is already sold
+        if (coll.status === "sold" && newStatus !== "sold") {
+            toast({
+                title: language === "en" ? "Status Locked" : "Status Zaključan",
+                description: language === "en"
+                    ? "This collection is sold. Status can only be changed to available by cancelling or refunding the payment in the Payments dashboard."
+                    : "Ova kolekcija je prodata. Status se može promeniti u dostupan samo otkazivanjem ili refundacijom uplate na panelu Plaćanja.",
+                variant: "destructive",
+            });
+            closeDialog();
+            return;
+        }
+
         // Block status change if collection is on auction and has bids
-        if (coll.status === "on_auction" && newStatus !== "on_auction" && coll.hasBids) {
+        if (coll.status === "on_auction" && newStatus !== "on_auction" && coll.hasBids && newStatus !== 'withdrawn') {
             toast({
                 title: language === "en" ? "Cannot Change Status" : "Nije moguće promeniti status",
                 description: language === "en"
@@ -172,6 +273,12 @@ export const useCollectionActions = ({
             return;
         }
 
+        if (newStatus === 'sold') {
+            setActiveDialog(null);
+            setDirectSaleOpen(true);
+            return;
+        }
+
         executeStatusChange();
     }, [pendingStatusChange, language, toast, auctions, executeStatusChange, closeDialog, openDialog]);
 
@@ -186,6 +293,9 @@ export const useCollectionActions = ({
         handleStatusChange,
         executeStatusChange,
         handleConfirmInlineStatusChange,
+        handleDirectSaleConfirm,
+        directSaleOpen,
+        setDirectSaleOpen,
         isMutating
     };
 };

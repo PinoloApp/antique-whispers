@@ -57,7 +57,6 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
                     onCheckedChange={() => onSelect(product.id)}
                 />
             </td>
-            <td className="px-4 py-4 text-muted-foreground">#{product.lot}</td>
             <td className="px-4 py-4">
                 <div className="flex items-center gap-3">
                     <img

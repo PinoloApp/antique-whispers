@@ -1,6 +1,6 @@
 import React from "react";
 import { AuctionMobileCard } from "./AuctionMobileCard";
-import { AuctionTableRow } from "./AuctionTableRow";
+import { AuctionTableRow } from "./AuctionTableRow/AuctionTableRow";
 import Table from "../../AdminComponents/Table";
 import PaginationControls from "../../AdminComponents/Pagination";
 import { getPaginationLabel } from "@/utils/adminUsers.utils";
@@ -11,9 +11,6 @@ interface AuctionListProps {
     expandedAuctionIds: number[];
     toggleAuctionExpand: (id: number) => void;
     getAuctionTotalBids: (id: number) => number;
-    getAuctionLots: (id: number) => any[];
-    getAuctionCategories: (id: number) => any[];
-    getAuctionLotsWithBids: (id: number) => number;
     auctionActions: any;
     auctionForm: any;
     expandedContentProps: any;
@@ -25,9 +22,6 @@ export const AuctionList: React.FC<AuctionListProps> = ({
     expandedAuctionIds,
     toggleAuctionExpand,
     getAuctionTotalBids,
-    getAuctionLots,
-    getAuctionCategories,
-    getAuctionLotsWithBids,
     auctionActions,
     auctionForm,
     expandedContentProps,
@@ -67,9 +61,6 @@ export const AuctionList: React.FC<AuctionListProps> = ({
                 {paginatedAuctions.map((auction: any) => {
                     const isExpanded = expandedAuctionIds.includes(auction.id);
                     const totalBids = getAuctionTotalBids(auction.id);
-                    const auctionLots = getAuctionLots(auction.id);
-                    const auctionCategories = getAuctionCategories(auction.id);
-                    const lotsWithBids = getAuctionLotsWithBids(auction.id);
 
                     return (
                         <AuctionMobileCard
@@ -79,9 +70,6 @@ export const AuctionList: React.FC<AuctionListProps> = ({
                             isExpanded={isExpanded}
                             toggleAuctionExpand={toggleAuctionExpand}
                             totalBids={totalBids}
-                            auctionLots={auctionLots}
-                            auctionCategories={auctionCategories}
-                            lotsWithBids={lotsWithBids}
                             auctionActions={auctionActions}
                             auctionForm={auctionForm}
                             expandedContentProps={expandedContentProps}
@@ -102,9 +90,6 @@ export const AuctionList: React.FC<AuctionListProps> = ({
                     {paginatedAuctions.map((auction: any) => {
                         const isExpanded = expandedAuctionIds.includes(auction.id);
                         const totalBids = getAuctionTotalBids(auction.id);
-                        const auctionLots = getAuctionLots(auction.id);
-                        const auctionCategories = getAuctionCategories(auction.id);
-                        const lotsWithBids = getAuctionLotsWithBids(auction.id);
 
                         return (
                             <AuctionTableRow
@@ -114,9 +99,6 @@ export const AuctionList: React.FC<AuctionListProps> = ({
                                 isExpanded={isExpanded}
                                 toggleAuctionExpand={toggleAuctionExpand}
                                 totalBids={totalBids}
-                                auctionLots={auctionLots}
-                                auctionCategories={auctionCategories}
-                                lotsWithBids={lotsWithBids}
                                 auctionActions={auctionActions}
                                 auctionForm={auctionForm}
                                 expandedContentProps={expandedContentProps}

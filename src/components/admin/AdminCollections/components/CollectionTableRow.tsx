@@ -81,7 +81,6 @@ export const CollectionTableRow = memo(
                             <span className="truncate">{collection.name[language]}</span>
                         </button>
                     </td>
-                    <td className="px-6 py-4">{collection.lotNumber}</td>
                     <td className="px-6 py-4">
                         {(() => {
                             const cat = categories.find((c) => c.id === collection.category);
@@ -153,7 +152,7 @@ export const CollectionTableRow = memo(
                 </tr>
                 {isExpanded && (
                     <tr>
-                        <td colSpan={8} className="px-0 py-0">
+                        <td colSpan={7} className="px-0 py-0">
                             <div className="bg-muted/20 px-6 py-3 border-t border-border">
                                 {collectionProducts.length === 0 ? (
                                     <p className="text-sm text-muted-foreground text-center py-2">
@@ -168,10 +167,9 @@ export const CollectionTableRow = memo(
                                                     {product.image && (
                                                         <img src={product.image} alt={language === "en" ? product.name : product.namesr} className="w-8 h-8 rounded object-cover" />
                                                     )}
-                                                    <div>
-                                                        <span className="text-sm font-medium">{language === "en" ? product.name : product.namesr}</span>
-                                                        <div className="text-xs text-muted-foreground">Lot {product.lot}</div>
-                                                    </div>
+                                                     <div>
+                                                         <span className="text-sm font-medium">{language === "en" ? product.name : product.namesr}</span>
+                                                     </div>
                                                 </div>
                                             </div>
                                         ))}

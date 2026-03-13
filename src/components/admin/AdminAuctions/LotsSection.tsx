@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Product, Category } from "@/contexts/DataContext";
+import { Product, Category, BidStep } from "@/contexts/DataContext";
 
 export interface LotsSectionProps {
     language: "en" | "sr";
@@ -31,6 +31,7 @@ export interface LotsSectionProps {
     getFilteredSubcategoriesWithAvailableProducts: (categoryId: string) => any[];
     getFilteredProductsBySubcategory: (categoryId: string, subcategoryId: string) => Product[];
     getFilteredProductsWithoutSubcategory: (categoryId: string) => Product[];
+    disabled?: boolean;
 }
 
 export const LotsSection: React.FC<LotsSectionProps> = ({
@@ -58,16 +59,18 @@ export const LotsSection: React.FC<LotsSectionProps> = ({
     getFilteredSubcategoriesWithAvailableProducts,
     getFilteredProductsBySubcategory,
     getFilteredProductsWithoutSubcategory,
+    disabled,
 }) => {
     return (
         <div className={`flex flex-col transition-all duration-300 ease-in-out ${lotsExpanded ? "flex-1 min-h-0" : ""}`}>
             <button
                 type="button"
                 onClick={() => {
+                    if (disabled && !lotsExpanded) return;
                     setLotsExpanded(!lotsExpanded);
                     if (!lotsExpanded) { setStepsExpanded(false); setCollectionsExpanded(false); }
                 }}
-                className={`flex items-center justify-between w-full p-3 border rounded-md hover:bg-muted/50 transition-all duration-300 cursor-pointer shrink-0 ${lotsExpanded ? "rounded-b-none border-b-0" : ""}`}
+                className={`flex items-center justify-between w-full p-3 border rounded-md hover:bg-muted/50 transition-all duration-300 cursor-pointer shrink-0 ${lotsExpanded ? "rounded-b-none border-b-0" : ""} ${disabled ? "opacity-70" : ""}`}
             >
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">
@@ -92,6 +95,7 @@ export const LotsSection: React.FC<LotsSectionProps> = ({
                             value={formLotSearch}
                             onChange={(e) => setFormLotSearch(e.target.value)}
                             className="pl-8 h-8 text-sm"
+                            disabled={disabled}
                         />
                     </div>
                 </div>
@@ -116,8 +120,8 @@ export const LotsSection: React.FC<LotsSectionProps> = ({
                                                 </span>
                                                 <span className="flex-1" />
                                             </button>
-                                            <label className="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer hover:bg-muted/50 transition-colors" onClick={(e) => e.stopPropagation()}>
-                                                <Checkbox checked={isFullySelected} onCheckedChange={(checked) => { if (checked) selectAllInCategory(category.id); else deselectAllInCategory(category.id); }} />
+                                             <label className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"}`} onClick={(e) => { if (disabled) e.preventDefault(); e.stopPropagation(); }}>
+                                                <Checkbox checked={isFullySelected} onCheckedChange={(checked) => { if (disabled) return; if (checked) selectAllInCategory(category.id); else deselectAllInCategory(category.id); }} disabled={disabled} />
                                                 <span className="text-xs text-muted-foreground">Odaberi sve</span>
                                             </label>
                                         </div>
@@ -138,8 +142,8 @@ export const LotsSection: React.FC<LotsSectionProps> = ({
                                                                     </span>
                                                                     <span className="flex-1" />
                                                                 </button>
-                                                                <label className="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer hover:bg-muted/50 transition-colors" onClick={(e) => e.stopPropagation()}>
-                                                                    <Checkbox checked={isSubFullySelected} onCheckedChange={(checked) => { if (checked) selectAllInSubcategory(category.id, subcategory.id); else deselectAllInSubcategory(category.id, subcategory.id); }} />
+                                                                 <label className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"}`} onClick={(e) => { if (disabled) e.preventDefault(); e.stopPropagation(); }}>
+                                                                    <Checkbox checked={isSubFullySelected} onCheckedChange={(checked) => { if (disabled) return; if (checked) selectAllInSubcategory(category.id, subcategory.id); else deselectAllInSubcategory(category.id, subcategory.id); }} disabled={disabled} />
                                                                     <span className="text-xs text-muted-foreground">Odaberi sve</span>
                                                                 </label>
                                                             </div>
@@ -147,9 +151,9 @@ export const LotsSection: React.FC<LotsSectionProps> = ({
                                                                 <div className="ml-5 space-y-1">
                                                                     {getFilteredProductsBySubcategory(category.id, subcategory.id).map((product) => (
                                                                         <div key={product.id} className="flex items-center gap-3 p-2 hover:bg-muted/30 rounded-md transition-colors">
-                                                                            <Checkbox id={`lot-${product.id}`} checked={selectedLots.includes(product.id)} onCheckedChange={() => toggleLot(product.id)} />
+                                                                            <Checkbox id={`lot-${product.id}`} checked={selectedLots.includes(product.id)} onCheckedChange={() => { if (disabled) return; toggleLot(product.id); }} disabled={disabled} />
                                                                             <img src={product.image} alt={language === "en" ? product.name : product.namesr} className="w-10 h-10 rounded object-cover" />
-                                                                            <label htmlFor={`lot-${product.id}`} className="flex-1 cursor-pointer text-sm">
+                                                                            <label htmlFor={`lot-${product.id}`} className={`flex-1 text-sm ${disabled ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}`}>
                                                                                 <span className="font-medium">Lot {product.lot}</span>
                                                                                 <span className="text-muted-foreground ml-2">{language === "en" ? product.name : product.namesr}</span>
                                                                             </label>
@@ -161,14 +165,14 @@ export const LotsSection: React.FC<LotsSectionProps> = ({
                                                     );
                                                 })}
                                                 {getFilteredProductsWithoutSubcategory(category.id).map((product) => (
-                                                    <div key={product.id} className="flex items-center gap-3 p-2 hover:bg-muted/30 rounded-md transition-colors">
-                                                        <Checkbox id={`lot-${product.id}`} checked={selectedLots.includes(product.id)} onCheckedChange={() => toggleLot(product.id)} />
-                                                        <img src={product.image} alt={language === "en" ? product.name : product.namesr} className="w-10 h-10 rounded object-cover" />
-                                                        <label htmlFor={`lot-${product.id}`} className="flex-1 cursor-pointer text-sm">
-                                                            <span className="font-medium">Lot {product.lot}</span>
-                                                            <span className="text-muted-foreground ml-2">{language === "en" ? product.name : product.namesr}</span>
-                                                        </label>
-                                                    </div>
+                                                     <div key={product.id} className="flex items-center gap-3 p-2 hover:bg-muted/30 rounded-md transition-colors">
+                                                         <Checkbox id={`lot-${product.id}`} checked={selectedLots.includes(product.id)} onCheckedChange={() => { if (disabled) return; toggleLot(product.id); }} disabled={disabled} />
+                                                         <img src={product.image} alt={language === "en" ? product.name : product.namesr} className="w-10 h-10 rounded object-cover" />
+                                                         <label htmlFor={`lot-${product.id}`} className={`flex-1 text-sm ${disabled ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}`}>
+                                                             <span className="font-medium">Lot {product.lot}</span>
+                                                             <span className="text-muted-foreground ml-2">{language === "en" ? product.name : product.namesr}</span>
+                                                         </label>
+                                                     </div>
                                                 ))}
                                             </div>
                                         )}

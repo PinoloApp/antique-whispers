@@ -27,20 +27,18 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AuctionExpandedContent } from "./AuctionExpandedContent";
+import { AuctionExpandedContent, AuctionExpandedContentProps } from "./AuctionExpandedContent/index";
+import { Language } from "./AuctionExpandedContent/types";
 
 interface AuctionMobileCardProps {
     auction: any;
-    language: "en" | "sr";
+    language: Language;
     isExpanded: boolean;
     toggleAuctionExpand: (id: number) => void;
     totalBids: number;
-    auctionLots: any[];
-    auctionCategories: any[];
-    lotsWithBids: number;
     auctionActions: any;
     auctionForm: any;
-    expandedContentProps: any;
+    expandedContentProps: AuctionExpandedContentProps;
 }
 
 export const AuctionMobileCard: React.FC<AuctionMobileCardProps> = ({
@@ -49,9 +47,6 @@ export const AuctionMobileCard: React.FC<AuctionMobileCardProps> = ({
     isExpanded,
     toggleAuctionExpand,
     totalBids,
-    auctionLots,
-    auctionCategories,
-    lotsWithBids,
     auctionActions,
     auctionForm,
     expandedContentProps

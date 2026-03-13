@@ -14,6 +14,7 @@ export interface BidStepsSectionProps {
     setCollectionsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
     bidSteps: BidStep[];
     setBidSteps: React.Dispatch<React.SetStateAction<BidStep[]>>;
+    disabled?: boolean;
 }
 
 export const BidStepsSection: React.FC<BidStepsSectionProps> = ({

@@ -7,6 +7,7 @@ import {
     onSnapshot,
     doc,
     updateDoc,
+    setDoc,
     writeBatch,
     Timestamp
 } from "firebase/firestore";
@@ -63,5 +64,14 @@ export class NotificationService {
             batch.update(docRef, { read: true });
         });
         await batch.commit();
+    }
+
+    static async addNotification(notification: Omit<Notification, "id">) {
+        const collRef = collection(db, this.collectionName);
+        const docRef = doc(collRef);
+        await setDoc(docRef, {
+            ...notification,
+            timestamp: Timestamp.fromDate(notification.timestamp)
+        });
     }
 }

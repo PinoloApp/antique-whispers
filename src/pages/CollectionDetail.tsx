@@ -7,7 +7,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import BidForm from "@/components/BidForm";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Heart, ArrowLeft, Layers, Info, Package, Check } from "lucide-react";
+import { Heart, ArrowLeft, Layers, Info, Package, Check, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -70,7 +70,8 @@ const CollectionDetail = () => {
     ? products.filter((p) => collection.productIds.includes(p.id))
     : [];
 
-  const favorited = collection ? isCollectionFavorite(collection.id) : false;
+  // Use collection.id (unique numeric ID) for favorites, not lot number
+  const favorited = collection ? isCollectionFavorite(Number(collection.id)) : false;
   const startingPrice = collection?.startingPrice || 0;
   const hasBids = collection ? (!!collection.hasBids || collection.currentBid > startingPrice) : false;
 
@@ -81,7 +82,8 @@ const CollectionDetail = () => {
   const handleConfirmFavorite = () => {
     if (!collection) return;
     const willBeFavorite = !favorited;
-    toggleCollectionFavorite(collection.id);
+    // Use collection.id (unique numeric ID) for favorites, not lot number
+    toggleCollectionFavorite(Number(collection.id));
     toast({
       title: willBeFavorite
         ? language === "en" ? "Added to favorites" : "Dodato u omiljene"
@@ -272,6 +274,12 @@ const CollectionDetail = () => {
           <div className="space-y-6">
             {/* Badges */}
             <div className="flex flex-wrap gap-3">
+              {collection.lotNumber && (
+                <Badge variant="outline" className="text-sm gap-1 bg-background/80 backdrop-blur-sm">
+                  <Hash className="w-3 h-3" />
+                  {language === "en" ? "Lot" : "Lot"} {collection.lotNumber}
+                </Badge>
+              )}
               <Badge className="text-sm gap-1 bg-primary text-primary-foreground border-0">
                 <Layers className="w-3 h-3" />
                 {language === "en" ? "Collection" : "Kolekcija"}

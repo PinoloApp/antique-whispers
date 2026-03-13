@@ -3,7 +3,8 @@ import { CollectionSortOption, CollectionStatusFilter } from "../components/admi
 import { db } from "../firebase/firebase";
 import { storage } from "../firebase/firebase";
 import { ref, listAll, deleteObject } from "firebase/storage";
-import { Collection } from "../contexts/DataContext";
+import { Collection, Product } from "../contexts/DataContext";
+import { CollectionProductService } from "./collectionProductService";
 
 const COLLECTION_NAME = "collections";
 
@@ -146,14 +147,13 @@ export const CollectionService = {
             console.warn(`No storage folder for collection ${id}`, e);
         }
 
-        // 2. Delete product images from Storage
+        // 2. Delete products (Storage and Firestore)
         for (const productId of productIds) {
             try {
-                const productFolderRef = ref(storage, `collectionProducts/${productId}`);
-                const productFiles = await listAll(productFolderRef);
-                await Promise.all(productFiles.items.map((item) => deleteObject(item)));
+                // This deletes both Storage files and the Firestore document
+                await CollectionProductService.deleteWithStorage(productId);
             } catch (e) {
-                console.warn(`No storage folder for product ${productId}`, e);
+                console.warn(`Error deleting product ${productId}`, e);
             }
         }
 

@@ -5,6 +5,8 @@ import { Trash2, Tag, CheckCircle2, DollarSign } from "lucide-react";
 import { CollectionService } from "@/services/collectionService";
 import { CollectionDialogKey } from "../config/collectionDialogTypes";
 import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
+import { NotificationService } from "@/services/notificationService";
+import { UserService } from "@/services/userService";
 
 interface UseCollectionBulkActionsProps {
     collections: Collection[];
@@ -185,6 +187,40 @@ export const useCollectionBulkActions = ({
                         ? `${selectedCollections.length} collections status changed to ${statusLabelEn}.`
                         : `${selectedCollections.length} kolekcija je dobilo status ${statusLabelSr}.`,
             });
+
+            // SEND NOTIFICATIONS IF WITHDRAWN
+            if (bulkStatus === "withdrawn") {
+                for (const id of selectedCollections) {
+                    const coll = collections.find(c => c.id === id);
+                    if (!coll) continue;
+
+                    const parentAuction = auctions.find((a) => (a.collectionIds || []).includes(id));
+                    if (parentAuction) {
+                        const interestedUserIds = await UserService.getInterestedUsers(id, true);
+                        const notificationPromises = interestedUserIds.map(userId =>
+                            NotificationService.addNotification({
+                                userId,
+                                type: "info",
+                                title: "Kolekcija povučena",
+                                titleEn: "Collection Withdrawn",
+                                description: `Kolekcija ${coll.lotNumber}: ${coll.name.sr} je povučena sa aukcije ${parentAuction.title.sr}.`,
+                                descriptionEn: `Collection ${coll.lotNumber}: ${coll.name.en} has been withdrawn from auction ${parentAuction.title.en}.`,
+                                timestamp: new Date(),
+                                read: false,
+                                productId: id
+                            })
+                        );
+                        await Promise.all(notificationPromises);
+
+                        // REMOVE FROM FAVORITES
+                        const favoriters = await UserService.getInterestedUsers(id, true);
+                        if (favoriters.length > 0) {
+                            await UserService.removeFromFavorites(id, favoriters, true);
+                        }
+                    }
+                }
+            }
+
             setSelectedCollections([]);
             onSuccess?.();
         } catch (error) {
@@ -252,6 +288,11 @@ export const useCollectionBulkActions = ({
                             const col = collections.find(c => c.id === id);
                             return col && isAuctionActiveOrUpcoming(col.auctionId, auctions);
                         })
+                    },
+                    {
+                        label: language === "en" ? "Withdrawn" : "Povučen",
+                        value: "withdrawn",
+                        action: handleStatusClick
                     }
                 ]
             }

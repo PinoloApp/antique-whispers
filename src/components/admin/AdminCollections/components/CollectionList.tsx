@@ -73,7 +73,6 @@ export const CollectionList: React.FC<CollectionListProps> = ({
 
     const TABLE_COLUMNS = [
         { key: "name", label: { en: "Name", sr: "Naziv" }, align: "text-left" },
-        { key: "lotNumber", label: { en: "Lot #", sr: "Lot br." }, align: "text-left" },
         { key: "category", label: { en: "Category", sr: "Kategorija" }, align: "text-left" },
         { key: "status", label: { en: "Status", sr: "Status" }, align: "text-left" },
         { key: "startingPrice", label: { en: "Starting Price", sr: "Početna Cena" }, align: "text-left" },
@@ -110,7 +109,6 @@ export const CollectionList: React.FC<CollectionListProps> = ({
                                 />
                                 <div className="min-w-0">
                                     <p className="font-medium text-foreground truncate">{collection.name[language]}</p>
-                                    <p className="text-xs text-muted-foreground">{collection.lotNumber}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">

@@ -4,10 +4,9 @@ import { useToast } from "@/hooks/use-toast";
 import { getFieldError, validators, type ValidationRule } from "@/lib/validation";
 import { CollectionService } from "@/services/collectionService";
 import { CollectionProductService } from "@/services/collectionProductService";
-import { ref, uploadString, getDownloadURL, deleteObject, listAll } from "firebase/storage";
 import { storage } from "@/firebase/firebase";
-import { getNextLotNumber } from "@/utils/lotUtils";
 import { compressImage } from "@/utils/imageUtils";
+import { uploadBase64Image, deleteStorageFile } from "@/utils/storageUtils";
 
 export interface InlineLot {
     tempId: string;
@@ -18,7 +17,17 @@ export interface InlineLot {
     image: string;
 }
 
-export const useCollectionForm = (language: "en" | "sr", allCollections: Collection[], allProducts: Product[]) => {
+export interface UseCollectionFormOptions {
+    onSuccessCreate?: (collection: Collection) => void;
+    onSuccessUpdate?: (collection: Collection) => void;
+}
+
+export const useCollectionForm = (
+    language: "en" | "sr",
+    allCollections: Collection[],
+    allProducts: Product[],
+    options?: UseCollectionFormOptions
+) => {
     const [collectionProducts, setCollectionProducts] = useState<Product[]>([]);
 
     useEffect(() => {
@@ -154,44 +163,17 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
         }
     };
 
-    const uploadBase64Image = async (base64String: string, path: string): Promise<string> => {
-        if (!base64String.startsWith('data:image')) return base64String; // Already a URL or raw path
-        const storageRef = ref(storage, path);
-        await uploadString(storageRef, base64String, 'data_url');
-        return await getDownloadURL(storageRef);
-    };
-
-    const deleteStorageFolder = async (folderPath: string) => {
-        try {
-            const folderRef = ref(storage, folderPath);
-            const files = await listAll(folderRef);
-            await Promise.all(files.items.map((item) => deleteObject(item)));
-        } catch (e) {
-            // Folder may not exist
-        }
-    };
-
-    const deleteStorageFile = async (url: string) => {
-        if (!url || !url.includes('firebasestorage')) return;
-        try {
-            const fileRef = ref(storage, url);
-            await deleteObject(fileRef);
-        } catch (e) {
-            // File may not exist
-        }
-    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
         // Mark all fields touched
-        const allFields = ["nameSr", "nameEn", "descSr", "descEn", "lotNumber", "startingPrice"];
+        const allFields = ["nameSr", "nameEn", "descSr", "descEn", "startingPrice"];
         const allTouched = Object.fromEntries(allFields.map((f) => [f, true]));
         setFormTouched((prev) => ({ ...prev, ...allTouched }));
 
         // Validate required fields
         const hasNameErr = getFieldError(formData.nameSr, requiredRule, language) || getFieldError(formData.nameEn, requiredRule, language);
-        const hasLotErr = getFieldError(formData.lotNumber, requiredRule, language);
         const hasPriceErr = getFieldError(formData.startingPrice, priceRule, language);
 
         // Paired optional: descriptions
@@ -202,7 +184,7 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
         // Mark no-lots touched
         setFormTouched((prev) => ({ ...prev, noLots: true }));
 
-        if (hasNameErr || hasLotErr || hasPriceErr || hasDescPairErr) {
+        if (hasNameErr || hasPriceErr || hasDescPairErr) {
             return;
         }
 
@@ -225,23 +207,7 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
         }
         if (hasLotErrors) return;
 
-        // Check unique lot number in Firestore collections and products
-        const lotTrimmed = formData.lotNumber.trim();
-        const existingInCollections = allCollections.some(
-            (c) => c.lotNumber === lotTrimmed && c.id !== editingCollection?.id
-        );
-        const existingInProducts = allProducts.some(
-            (p) => p.lot === lotTrimmed
-        );
 
-        if (existingInCollections || existingInProducts) {
-            toast({
-                title: language === "en" ? "Duplicate Lot Number" : "Duplikat Broja Lota",
-                description: language === "en" ? "This lot number is already in use." : "Ovaj broj lota je već u upotrebi.",
-                variant: "destructive",
-            });
-            return;
-        }
 
         const collectionData: Collection = {
             id: editingCollection?.id || Date.now(),
@@ -321,6 +287,7 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
 
                 const dataToSave = {
                     ...pendingCollectionData,
+                    id: nextId,
                     productIds: newProductIds,
                 };
 
@@ -340,6 +307,11 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
                     title: language === "en" ? "Collection Created" : "Kolekcija Kreirana",
                     description: language === "en" ? "The collection has been created successfully." : "Kolekcija je uspešno kreirana.",
                 });
+
+                if (options?.onSuccessCreate) {
+                    options.onSuccessCreate(dataToSave);
+                }
+
                 setIsOpen(false);
                 resetForm();
             } catch (error) {
@@ -452,6 +424,11 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
                     title: language === "en" ? "Collection Updated" : "Kolekcija Ažurirana",
                     description: language === "en" ? "The collection has been updated successfully." : "Kolekcija je uspešno ažurirana.",
                 });
+
+                if (options?.onSuccessUpdate) {
+                    options.onSuccessUpdate({ ...editingCollection, ...updates } as Collection);
+                }
+
                 setIsOpen(false);
                 resetForm();
             } catch (error) {
@@ -471,13 +448,7 @@ export const useCollectionForm = (language: "en" | "sr", allCollections: Collect
 
     const toggleOpen = (open: boolean) => {
         setIsOpen(open);
-        if (open && !editingCollection) {
-            const nextLot = getNextLotNumber(
-                allCollections.map(c => c.lotNumber),
-                allProducts.map(p => p.lot)
-            );
-            setFormData(prev => ({ ...prev, lotNumber: nextLot }));
-        }
+
     };
 
     return {

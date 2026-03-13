@@ -2,9 +2,9 @@ import { useState, useCallback } from "react";
 import { Product, Collection } from "@/contexts/DataContext";
 import { ProductService } from "@/services/productService";
 import { useToast } from "@/hooks/use-toast";
+import { uploadBase64Image, deleteStorageFile } from "@/utils/storageUtils";
 import { ProductFormData } from "../types";
 
-import { getNextLotNumber } from "@/utils/lotUtils";
 
 export interface UseProductFormOptions {
     onSuccessCreate?: (product: Product) => void;
@@ -119,21 +119,6 @@ export const useProductForm = (language: "en" | "sr", allProducts: Product[], al
         // Required: name SR/EN, starting price
         if (!formData.namesr.trim() || !formData.name.trim() || !formData.currentBid.trim()) return;
 
-        // Check for duplicate lot number
-        const lotTrimmed = formData.lot.trim();
-        if (lotTrimmed) {
-            const isDuplicateProduct = allProducts.some(p => p.lot === lotTrimmed && p.id !== editingProduct?.id);
-            const isDuplicateCollection = allCollections.some(c => c.lotNumber === lotTrimmed);
-
-            if (isDuplicateProduct || isDuplicateCollection) {
-                toast({
-                    title: language === "en" ? "Duplicate Lot Number" : "Duplikat Broja Lota",
-                    description: language === "en" ? "This lot number is already in use." : "Ovaj broj lota je već u upotrebi.",
-                    variant: "destructive",
-                });
-                return;
-            }
-        }
 
         // Paired optional: if one language filled, other is required
         const pairCheck = (a: string, b: string) => (a.trim() || b.trim() ? a.trim() && b.trim() : true);
@@ -146,8 +131,33 @@ export const useProductForm = (language: "en" | "sr", allProducts: Product[], al
 
         setIsSubmitting(true);
         try {
+            const productId = editingProduct?.id || Date.now();
+            const newUploadedImages: string[] = [];
+
+            // 1. Handle image deletions (if editing)
+            if (editingProduct) {
+                const removedImages = (editingProduct.images || []).filter(
+                    (oldImg) => !uploadedImages.includes(oldImg)
+                );
+                await Promise.all(removedImages.map((img) => deleteStorageFile(img)));
+            }
+
+            // 2. Upload new images
+            for (let i = 0; i < uploadedImages.length; i++) {
+                const img = uploadedImages[i];
+                if (img.startsWith("data:image")) {
+                    const uploadedUrl = await uploadBase64Image(
+                        img,
+                        `products/${productId}/image_${Date.now()}_${i}`
+                    );
+                    newUploadedImages.push(uploadedUrl);
+                } else {
+                    newUploadedImages.push(img);
+                }
+            }
+
             const productData: Product = {
-                id: editingProduct?.id || Date.now(),
+                id: productId,
                 name: formData.name,
                 namesr: formData.namesr,
                 description: { en: formData.descriptionEn, sr: formData.descriptionSr },
@@ -155,8 +165,8 @@ export const useProductForm = (language: "en" | "sr", allProducts: Product[], al
                 currentBid: Number(formData.currentBid),
                 startingPrice: Number(formData.currentBid),
                 hasBids: editingProduct?.hasBids || false,
-                image: uploadedImages[0],
-                images: uploadedImages,
+                image: newUploadedImages[0],
+                images: newUploadedImages,
                 category: formData.category,
                 subcategory: formData.subcategory,
                 auctionId: Number(formData.auctionId),
@@ -216,13 +226,7 @@ export const useProductForm = (language: "en" | "sr", allProducts: Product[], al
 
     const toggleOpen = useCallback((open: boolean) => {
         setIsOpen(open);
-        if (open && !editingProduct) {
-            const nextLot = getNextLotNumber(
-                allProducts.map(p => p.lot),
-                allCollections.map(c => c.lotNumber)
-            );
-            setFormData(prev => ({ ...prev, lot: nextLot }));
-        }
+
     }, [editingProduct, allProducts, allCollections]);
 
     return {

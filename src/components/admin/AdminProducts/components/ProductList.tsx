@@ -57,7 +57,6 @@ export const ProductList: React.FC<ProductListProps> = ({
     } = bulkActionsHook;
 
     const TABLE_COLUMNS = [
-        { key: "lotNumber", label: { en: "Lot", sr: "Lot" }, align: "text-left" },
         { key: "product", label: { en: "Product", sr: "Proizvod" }, align: "text-left" },
         { key: "category", label: { en: "Category", sr: "Kategorija" }, align: "text-left" },
         { key: "status", label: { en: "Status", sr: "Status" }, align: "text-left" },

@@ -15,8 +15,8 @@ const Favorites = () => {
   const { products, collections } = useData();
 
   const collectionProductIds = new Set(collections.flatMap(c => c.productIds));
-  const favoriteProducts = products.filter(p => favorites.includes(p.id) && !collectionProductIds.has(p.id));
-  const favoriteCollections = collections.filter(c => collectionFavorites.includes(c.id));
+  const favoriteProducts = products.filter(p => favorites.some(id => Number(id) === Number(p.id)) && !collectionProductIds.has(p.id) && p.status !== 'withdrawn');
+  const favoriteCollections = collections.filter(c => collectionFavorites.some(id => Number(id) === Number(c.id)) && c.status !== 'withdrawn');
   const totalCount = favoriteProducts.length + favoriteCollections.length;
 
   return (

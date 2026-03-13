@@ -13,7 +13,8 @@ import {
     getCountFromServer,
     DocumentSnapshot,
     onSnapshot,
-    Unsubscribe
+    Unsubscribe,
+    getDoc
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { Auction } from "../contexts/DataContext";
@@ -132,6 +133,26 @@ export const AuctionService = {
             ...auction,
             createdAt: new Date(),
         });
+    },
+
+    /**
+     * Get single auction by ID
+     */
+    async getById(id: number | string): Promise<Auction | null> {
+        const docRef = doc(db, COLLECTION_NAME, id.toString());
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return {
+                ...data,
+                id: data.id || docSnap.id,
+                date: data.date?.toDate ? data.date.toDate() : new Date(data.date || Date.now()),
+                startDate: data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate),
+                endDate: data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate),
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
+            } as any as Auction;
+        }
+        return null;
     },
 
     /**

@@ -16,6 +16,9 @@ import TitleHeader from "../../AdminComponents/TitleHeader";
 import { CollectionList } from "./CollectionList";
 import { useCollectionActions } from "../hooks/useCollectionActions";
 import { CollectionDialogs } from "./CollectionDialogs";
+import { DirectSaleModal } from "../../DirectSaleModal";
+import { useCollectionAuctionAssignment } from "../hooks/useCollectionAuctionAssignment";
+import { CollectionAuctionAssignmentDialogs } from "./CollectionAuctionAssignmentDialogs";
 
 const statusOptions: { value: CollectionStatus; labelEn: string; labelSr: string }[] = [
   { value: "available", labelEn: "Available", labelSr: "Dostupna" },
@@ -36,7 +39,18 @@ export default function AdminCollections() {
   const filterSortHook = useServerPaginatedCollections({ language });
   const { allCollections, refresh } = filterSortHook;
 
-  const formHook = useCollectionForm(language, allCollections, products);
+  const auctionHook = useCollectionAuctionAssignment(language);
+
+  const formHook = useCollectionForm(language, allCollections, products, {
+    onSuccessCreate: (collection) => {
+      auctionHook.checkCategoryAuctionsAndPrompt(collection.id, collection.category, products);
+    },
+    onSuccessUpdate: (collection) => {
+      if (collection.status !== "on_auction") {
+        auctionHook.checkCategoryAuctionsAndPrompt(collection.id, collection.category, products);
+      }
+    }
+  });
   const {
     resetForm,
     setIsOpen,
@@ -139,6 +153,7 @@ export default function AdminCollections() {
         </>
       )}
 
+      <CollectionAuctionAssignmentDialogs language={language} auctionHook={auctionHook} />
       <CollectionDialogs
         language={language}
         actionsHook={actionsHook}
@@ -146,6 +161,14 @@ export default function AdminCollections() {
         formHook={formHook}
         statusOptions={statusOptions}
         auctions={auctions}
+      />
+      <DirectSaleModal
+        isOpen={actionsHook.directSaleOpen}
+        onOpenChange={actionsHook.setDirectSaleOpen}
+        itemName={actionsHook.pendingStatusChange?.collection?.name[language] || ""}
+        defaultAmount={actionsHook.pendingStatusChange?.collection?.startingPrice || 0}
+        onConfirm={actionsHook.handleDirectSaleConfirm}
+        isLoading={actionsHook.isMutating}
       />
     </div>
   );

@@ -213,6 +213,9 @@ const Profile = () => {
       const lotNumber = item ? (item as any).lot : bid.productId;
 
       const auction = auctions.find(a => Number(a.id) === Number(item?.auctionId));
+      const auctionId = auction?.id || "unknown";
+      const auctionName = (auction as any)?.title?.[language] || (auction as any)?.title || (language === "en" ? "Unknown Auction" : "Nepoznata Aukcija");
+      const auctionDate = auction?.endDate ? new Date(auction.endDate).toLocaleDateString() : "N/A";
       const isAuctionCompleted = auction?.status === "completed";
 
       let status: "won" | "lost" | "active" = "active";
@@ -230,9 +233,35 @@ const Profile = () => {
         status,
         date: bid.timestamp instanceof Date ? bid.timestamp.toLocaleDateString() : new Date().toLocaleDateString(),
         image: itemImage,
+        auctionId,
+        auctionName,
+        auctionDate,
       };
     });
   }, [userBids, products, collections, collectionProducts, auctions, language]);
+
+  // Group bids by auction and then by lot
+  const bidsByAuction = useMemo(() => {
+    const grouped = bidHistory.reduce<Record<string, any>>((acc, bid) => {
+      if (!acc[bid.auctionId]) {
+        acc[bid.auctionId] = {
+          id: bid.auctionId,
+          name: bid.auctionName,
+          date: bid.auctionDate,
+          lots: {}
+        };
+      }
+
+      if (!acc[bid.auctionId].lots[bid.lot]) {
+        acc[bid.auctionId].lots[bid.lot] = [];
+      }
+
+      acc[bid.auctionId].lots[bid.lot].push(bid);
+      return acc;
+    }, {});
+
+    return Object.values(grouped);
+  }, [bidHistory]);
 
   // Derived stats from real data
   const stats = useMemo(() => [
@@ -637,106 +666,134 @@ const Profile = () => {
                     ))}
                   </div>
 
-                  <div className="space-y-3">
-                    {Object.entries(groupedBids)
-                      .filter(([, bids]) => {
+                  <div className="space-y-4">
+                    {bidsByAuction
+                      .filter((auction) => {
                         if (bidFilter === "all") return true;
-                        const latestBid = bids[0];
-                        return latestBid.status === bidFilter;
+                        // Check if any lot in this auction matches the filter
+                        return Object.values(auction.lots).some((bids: any) => bids[0].status === bidFilter);
                       })
-                      .map(([lot, bids]) => {
-                        const latestBid = bids[0];
-                        const hasMultiple = bids.length > 1;
-                        const isExpanded = expandedLots[lot] || false;
-
-                        if (!hasMultiple) {
-                          return (
-                            <div
-                              key={lot}
-                              className="flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                            >
-                              <img
-                                src={latestBid.image}
-                                alt={latestBid.name}
-                                className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                              />
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-primary">{latestBid.lot}</span>
-                                  {getStatusBadge(latestBid.status)}
-                                </div>
-                                <p className="font-medium text-foreground mt-1">{latestBid.name}</p>
-                                <p className="text-xs text-muted-foreground">{latestBid.date}</p>
-                              </div>
-                              <p className="text-lg font-bold text-foreground">€{latestBid.amount.toLocaleString()}</p>
-                            </div>
-                          );
-                        }
+                      .map((auction) => {
+                        const isExpanded = expandedLots[`auction-bid-${auction.id}`] ?? false;
+                        const filteredLots = Object.entries(auction.lots).filter(([, bids]: any) => {
+                          if (bidFilter === "all") return true;
+                          return bids[0].status === bidFilter;
+                        });
 
                         return (
                           <Collapsible
-                            key={lot}
+                            key={auction.id}
                             open={isExpanded}
-                            onOpenChange={(open) => setExpandedLots((prev) => ({ ...prev, [lot]: open }))}
+                            onOpenChange={(open) =>
+                              setExpandedLots((prev) => ({ ...prev, [`auction-bid-${auction.id}`]: open }))
+                            }
                           >
                             <CollapsibleTrigger asChild>
-                              <div className="flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
-                                <img
-                                  src={latestBid.image}
-                                  alt={latestBid.name}
-                                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                                />
+                              <div className="flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer mb-2">
                                 <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-primary">{latestBid.lot}</span>
-                                    {getStatusBadge(latestBid.status)}
-                                  </div>
-                                  <p className="font-medium text-foreground mt-1">{latestBid.name}</p>
-                                  <p className="text-xs text-muted-foreground">{latestBid.date}</p>
+                                  <p className="font-semibold text-foreground">{auction.name}</p>
+                                  <p className="text-xs text-muted-foreground">{auction.date}</p>
+                                  <Badge variant="outline" className="text-xs mt-1">
+                                    {filteredLots.length}{" "}
+                                    {language === "en"
+                                      ? filteredLots.length === 1 ? "lot" : "lots"
+                                      : filteredLots.length === 1 ? "lot" : "lotova"}
+                                  </Badge>
                                 </div>
-                                <div className="flex flex-col items-center gap-1">
-                                  <div className="flex items-center gap-3">
-                                    <Badge variant="outline" className="text-xs">
-                                      {bids.length} {language === "en" ? "bids" : "ponuda"}
-                                    </Badge>
-                                    <p className="text-lg font-bold text-foreground">
-                                      €{latestBid.amount.toLocaleString()}
-                                    </p>
-                                    <ChevronDown
-                                      className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-                                    />
-                                  </div>
-                                </div>
+                                <ChevronDown
+                                  className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                                />
                               </div>
                             </CollapsibleTrigger>
                             <CollapsibleContent>
-                              <div className="ml-4 border-l-2 border-primary/20 pl-4 space-y-2 mt-1 mb-2">
-                                {bids.slice(1).map((bid) => (
-                                  <div
-                                    key={bid.id}
-                                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50"
-                                  >
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs text-muted-foreground">{bid.date}</span>
+                              <div className="ml-4 border-l-2 border-primary/20 pl-4 space-y-3 mt-1 mb-4">
+                                {filteredLots.map(([lot, bids]: any) => {
+                                  const latestBid = bids[0];
+                                  const hasMultiple = bids.length > 1;
+                                  const isLotExpanded = expandedLots[`lot-bid-${auction.id}-${lot}`] || false;
+
+                                  if (!hasMultiple) {
+                                    return (
+                                      <div
+                                        key={lot}
+                                        className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-border/50"
+                                      >
+                                        <img
+                                          src={latestBid.image}
+                                          alt={latestBid.name}
+                                          className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                                        />
+                                        <div className="flex-1 text-sm">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium text-primary">{latestBid.lot}</span>
+                                            {getStatusBadge(latestBid.status)}
+                                          </div>
+                                          <p className="font-medium text-foreground">{latestBid.name}</p>
+                                          <p className="text-xs text-muted-foreground">{latestBid.date}</p>
+                                        </div>
+                                        <p className="font-bold text-foreground">€{latestBid.amount.toLocaleString()}</p>
                                       </div>
-                                    </div>
-                                    <p className="text-sm font-semibold text-foreground">
-                                      €{bid.amount.toLocaleString()}
-                                    </p>
-                                  </div>
-                                ))}
+                                    );
+                                  }
+
+                                  return (
+                                    <Collapsible
+                                      key={lot}
+                                      open={isLotExpanded}
+                                      onOpenChange={(open) => setExpandedLots((prev) => ({ ...prev, [`lot-bid-${auction.id}-${lot}`]: open }))}
+                                    >
+                                      <CollapsibleTrigger asChild>
+                                        <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-border/50 cursor-pointer">
+                                          <img
+                                            src={latestBid.image}
+                                            alt={latestBid.name}
+                                            className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                                          />
+                                          <div className="flex-1 text-sm">
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium text-primary">{latestBid.lot}</span>
+                                              {getStatusBadge(latestBid.status)}
+                                            </div>
+                                            <p className="font-medium text-foreground">{latestBid.name}</p>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="text-[10px] px-1 h-5">
+                                              {bids.length}
+                                            </Badge>
+                                            <p className="font-bold text-foreground">€{latestBid.amount.toLocaleString()}</p>
+                                            <ChevronDown
+                                              className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${isLotExpanded ? "rotate-180" : ""}`}
+                                            />
+                                          </div>
+                                        </div>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent>
+                                        <div className="ml-3 border-l border-primary/10 pl-3 space-y-1 mt-1">
+                                          {bids.slice(1).map((bid: any) => (
+                                            <div
+                                              key={bid.id}
+                                              className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs"
+                                            >
+                                              <span className="text-muted-foreground">{bid.date}</span>
+                                              <span className="font-semibold text-foreground">€{bid.amount.toLocaleString()}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </CollapsibleContent>
+                                    </Collapsible>
+                                  );
+                                })}
                               </div>
                             </CollapsibleContent>
                           </Collapsible>
                         );
                       })}
-                    {Object.entries(groupedBids).filter(([, bids]) => {
+                    {bidsByAuction.filter((auction) => {
                       if (bidFilter === "all") return true;
-                      return bids[0].status === bidFilter;
+                      return Object.values(auction.lots).some((bids: any) => bids[0].status === bidFilter);
                     }).length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Gavel className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                        <div className="text-center py-12 text-muted-foreground">
+                          <Gavel className="w-12 h-12 mx-auto mb-3 opacity-20" />
                           <p>{language === "en" ? "No bids found" : "Nema pronađenih licitacija"}</p>
                         </div>
                       )}

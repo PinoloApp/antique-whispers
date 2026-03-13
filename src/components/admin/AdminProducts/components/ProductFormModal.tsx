@@ -254,11 +254,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
-                                <label className="text-sm font-medium">Lot #</label>
-                                <Input value={formData.lot} onChange={(e) => setFormData({ ...formData, lot: e.target.value })} />
-                            </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="text-sm font-medium">
                                     {language === "en" ? "Catalog Mark - Optional" : "Kataloška Oznaka - Opciono"}

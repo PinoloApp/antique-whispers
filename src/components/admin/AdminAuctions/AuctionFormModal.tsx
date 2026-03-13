@@ -19,6 +19,7 @@ export interface AuctionFormModalProps extends AuctionFormType {
     collections: Collection[];
     collectionProducts: Product[];
     isMutating?: boolean;
+    disabled?: boolean;
 }
 
 export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
@@ -76,7 +77,10 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
     setExpandedColCategories,
     setExpandedColSubcategories,
     originalCollectionIds,
+    disabled,
 }) => {
+    const isReadOnly = (editingAuction?.status as string === "cancelled" || editingAuction?.status as string === "closed") || !!disabled;
+
     const handleOpenChange = (open: boolean) => {
         if (!open && isMutating) return;
         setIsOpen(open);
@@ -86,7 +90,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
-                <Button className="gap-2 w-full sm:w-auto">
+                <Button className="gap-2 w-full sm:w-auto" disabled={isMutating || disabled}>
                     <Plus className="w-4 h-4" />
                     {language === "en" ? "Add Auction" : "Dodaj Aukciju"}
                 </Button>
@@ -117,6 +121,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     onChange={(e) => setFormData(prev => ({ ...prev, titleSr: e.target.value }))}
                                     onBlur={() => markFormTouched("titleSr")}
                                     required
+                                    disabled={isReadOnly}
                                 />
                                 {getErr("titleSr", formData.titleSr) && (
                                     <p className="text-xs text-destructive mt-1">{getErr("titleSr", formData.titleSr)}</p>
@@ -129,6 +134,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     onChange={(e) => setFormData(prev => ({ ...prev, titleEn: e.target.value }))}
                                     onBlur={() => markFormTouched("titleEn")}
                                     required
+                                    disabled={isReadOnly}
                                 />
                                 {getErr("titleEn", formData.titleEn) && (
                                     <p className="text-xs text-destructive mt-1">{getErr("titleEn", formData.titleEn)}</p>
@@ -145,6 +151,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     onChange={(e) => setFormData(prev => ({ ...prev, descriptionSr: e.target.value }))}
                                     onBlur={() => markFormTouched("descSr")}
                                     required
+                                    disabled={isReadOnly}
                                 />
                                 {getErr("descSr", formData.descriptionSr) && (
                                     <p className="text-xs text-destructive mt-1">{getErr("descSr", formData.descriptionSr)}</p>
@@ -159,6 +166,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     onChange={(e) => setFormData(prev => ({ ...prev, descriptionEn: e.target.value }))}
                                     onBlur={() => markFormTouched("descEn")}
                                     required
+                                    disabled={isReadOnly}
                                 />
                                 {getErr("descEn", formData.descriptionEn) && (
                                     <p className="text-xs text-destructive mt-1">{getErr("descEn", formData.descriptionEn)}</p>
@@ -175,7 +183,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     value={formData.startDate}
                                     onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
                                     onBlur={() => markFormTouched("startDate")}
-                                    disabled={editingAuction?.status === "active" || editingAuction?.status === "paused" || editingAuction?.status === "cancelled"}
+                                    disabled={isReadOnly || editingAuction?.status === "active" || editingAuction?.status === "paused"}
                                     min={new Date().toISOString().split('T')[0]}
                                 />
                                 {getDateError("startDate") && (
@@ -189,7 +197,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     value={formData.startTime}
                                     onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
                                     onBlur={() => markFormTouched("startTime")}
-                                    disabled={editingAuction?.status === "active" || editingAuction?.status === "paused" || editingAuction?.status === "cancelled"}
+                                    disabled={isReadOnly || editingAuction?.status === "active" || editingAuction?.status === "paused"}
                                     min={formData.startDate === new Date().toISOString().split('T')[0] ? new Date().toTimeString().slice(0, 5) : undefined}
                                 />
                                 {getDateError("startTime") && (
@@ -203,6 +211,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     value={formData.endDate}
                                     onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
                                     onBlur={() => markFormTouched("endDate")}
+                                    disabled={isReadOnly}
                                 />
                                 {getDateError("endDate") && (
                                     <p className="text-xs text-destructive mt-1">{getDateError("endDate")}</p>
@@ -215,6 +224,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                                     value={formData.endTime}
                                     onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
                                     onBlur={() => markFormTouched("endTime")}
+                                    disabled={isReadOnly}
                                 />
                                 {getDateError("endTime") && (
                                     <p className="text-xs text-destructive mt-1">{getDateError("endTime")}</p>
@@ -249,6 +259,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                         getFilteredSubcategoriesWithAvailableProducts={getFilteredSubcategoriesWithAvailableProducts}
                         getFilteredProductsBySubcategory={(categoryId, subcategoryId) => getFilteredProductsBySubcategory(categoryId, subcategoryId)}
                         getFilteredProductsWithoutSubcategory={getFilteredProductsWithoutSubcategory}
+                        disabled={isReadOnly}
                     />
 
                     {/* Collections Section */}
@@ -270,6 +281,7 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                         setExpandedColCategories={setExpandedColCategories}
                         setExpandedColSubcategories={setExpandedColSubcategories}
                         originalCollectionIds={originalCollectionIds}
+                        disabled={isReadOnly}
                     />
 
                     {/* Bid Steps Section */}
@@ -281,10 +293,11 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                         setCollectionsExpanded={setCollectionsExpanded}
                         bidSteps={bidSteps}
                         setBidSteps={setBidSteps}
+                        disabled={isReadOnly}
                     />
                 </form>
                 <div className="pt-4 border-t mt-auto">
-                    <Button type="submit" className="w-full" onClick={handleSubmit} disabled={isMutating}>
+                    <Button type="submit" className="w-full" onClick={handleSubmit} disabled={isMutating || isReadOnly}>
                         {editingAuction
                             ? language === "en" ? "Update Auction" : "Ažuriraj Aukciju"
                             : language === "en" ? "Create Auction" : "Kreiraj Aukciju"}

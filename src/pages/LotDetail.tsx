@@ -57,18 +57,21 @@ const LotDetail = () => {
   const product = products.find((p) => p.id === Number(id));
   const auction = product ? auctions.find((a) => a.id === product.auctionId) : null;
 
-  const favorited = product ? isFavorite(product.id) : false;
+  // Use product.id (unique numeric ID) for favorites, not lot number
+  const favorited = product ? isFavorite(Number(product.id)) : false;
   const startingPrice = product?.startingPrice || 0;
   const hasBids = product ? (!!product.hasBids || product.currentBid > startingPrice) : false;
 
   const handleFavoriteClick = () => {
     setShowConfirm(true);
+    
   };
 
   const handleConfirmFavorite = () => {
     if (!product) return;
     const willBeFavorite = !favorited;
-    toggleFavorite(product.id);
+    // Use product.id (unique numeric ID) for favorites, not lot number
+    toggleFavorite(Number(product.id));
     toast({
       title: willBeFavorite
         ? language === "en" ? "Added to favorites" : "Dodato u omiljene"

@@ -4,7 +4,7 @@ import { useData, Collection } from "@/contexts/DataContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Package, Layers, Heart } from "lucide-react";
+import { Eye, Package, Layers, Heart, Hash } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import AuthDialog from "./AuthDialog";
@@ -38,7 +38,8 @@ const CollectionCard = ({ collection }: CollectionCardProps) => {
   const description = collection.description[language];
   const collectionProducts = products.filter((p) => collection.productIds.includes(p.id));
   const previewImage = collection.image || collectionProducts[0]?.image || "/placeholder.svg";
-  const favorited = isCollectionFavorite(collection.id);
+  // Use collection.id (unique numeric ID) for favorites, not lot number
+  const favorited = isCollectionFavorite(Number(collection.id));
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -47,7 +48,8 @@ const CollectionCard = ({ collection }: CollectionCardProps) => {
 
   const handleConfirmFavorite = () => {
     const willBeFavorite = !favorited;
-    toggleCollectionFavorite(collection.id);
+    // Use collection.id (unique numeric ID) for favorites, not lot number
+    toggleCollectionFavorite(Number(collection.id));
     toast({
       title: willBeFavorite
         ? language === "en" ? "Added to favorites" : "Dodato u omiljene"
@@ -75,6 +77,12 @@ const CollectionCard = ({ collection }: CollectionCardProps) => {
 
         {/* Badges */}
         <div className="absolute top-3 left-3 right-12 flex flex-wrap gap-1.5 z-10">
+          {collection.lotNumber && (
+            <Badge variant="outline" className="text-xs gap-1 bg-background/80 backdrop-blur-sm">
+              <Hash className="w-3 h-3" />
+              {language === "en" ? "Lot" : "Lot"} {collection.lotNumber}
+            </Badge>
+          )}
           <Badge className="text-xs gap-1 bg-primary text-primary-foreground border-0">
             <Layers className="w-3 h-3" />
             {language === "en" ? "Collection" : "Kolekcija"}

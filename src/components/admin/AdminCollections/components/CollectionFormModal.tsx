@@ -64,8 +64,6 @@ export const CollectionFormModal: React.FC<CollectionFormModalProps> = ({ langua
     const handleBlurDescSr = React.useCallback(() => markFormTouched("descSr"), [markFormTouched]);
     const handleBlurDescEn = React.useCallback(() => markFormTouched("descEn"), [markFormTouched]);
 
-    const handleChangeLotNumber = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, lotNumber: e.target.value })), [setFormData]);
-    const handleBlurLotNumber = React.useCallback(() => markFormTouched("lotNumber"), [markFormTouched]);
 
     const handleChangeStartingPrice = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, startingPrice: e.target.value })), [setFormData]);
     const handleBlurStartingPrice = React.useCallback(() => markFormTouched("startingPrice"), [markFormTouched]);
@@ -123,9 +121,7 @@ export const CollectionFormModal: React.FC<CollectionFormModalProps> = ({ langua
                             />
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-2">
-                                <FormField label={t("lotNumberLabel")} required error={getErr("lotNumber", formData.lotNumber)}>
-                                    <Input className="h-9 sm:h-10 text-sm" value={formData.lotNumber} onChange={handleChangeLotNumber} onBlur={handleBlurLotNumber} placeholder="LOT-K001" required />
-                                </FormField>
+                                <div></div>
                                 <FormField label={t("startingPriceLabel")} required error={getErr("startingPrice", formData.startingPrice, priceRule)}>
                                     <Input className="h-9 sm:h-10 text-sm" type="number" min="0" step="0.01" value={formData.startingPrice} onChange={handleChangeStartingPrice} onBlur={handleBlurStartingPrice} required />
                                 </FormField>

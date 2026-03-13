@@ -11,6 +11,7 @@ import { useProductBulkActions } from "./hooks/useProductBulkActions";
 import { useAuctionAssignment } from "./hooks/useAuctionAssignment";
 import { useProductActions } from "./hooks/useProductActions";
 import { ProductDialogs } from "./components/ProductDialogs";
+import { DirectSaleModal } from "../DirectSaleModal";
 import { ProductFormModal } from "./components/ProductFormModal";
 import { ProductList } from "./components/ProductList";
 import TitleHeader from "../AdminComponents/TitleHeader";
@@ -103,12 +104,12 @@ const AdminProducts = () => {
       </TitleHeader>
 
       {(filterSortHook.totalCount > 0 || filterSortHook.paginatedProducts.length > 0 || filterSortHook.searchQuery.trim() || filterSortHook.statusFilter !== "all" || filterSortHook.categoryFilter !== "all" || filterSortHook.auctionFilter !== "all") && (
-        <CategoryFilters
+          <CategoryFilters
           searchQuery={filterSortHook.searchQuery}
           onSearchChange={filterSortHook.setSearchQuery}
           filteredCount={filterSortHook.totalCount}
           selectFilters={filterSortHook.selectFilters}
-          placeholder={language === "en" ? "Search by name or lot..." : "Pretraži po imenu ili lotu..."}
+          placeholder={language === "en" ? "Search products..." : "Pretraži proizvode..."}
           itemsFoundText={language === "en" ? "products found" : "proizvoda pronađeno"}
         />
       )}
@@ -153,6 +154,14 @@ const AdminProducts = () => {
         actionsHook={actionsHook}
         statusOptions={statusOptions}
         auctions={auctions}
+      />
+      <DirectSaleModal
+        isOpen={actionsHook.directSaleOpen}
+        onOpenChange={actionsHook.setDirectSaleOpen}
+        itemName={actionsHook.pendingStatusChange?.product?.name || ""}
+        defaultAmount={actionsHook.pendingStatusChange?.product?.startingPrice || 0}
+        onConfirm={actionsHook.handleDirectSaleConfirm}
+        isLoading={actionsHook.isMutating}
       />
     </div>
   );

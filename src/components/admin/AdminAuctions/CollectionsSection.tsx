@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Product, Collection, Category } from "@/contexts/DataContext";
+import { Product, Collection, Category, BidStep } from "@/contexts/DataContext";
 
 export interface CollectionsSectionProps {
     language: "en" | "sr";
@@ -24,6 +24,9 @@ export interface CollectionsSectionProps {
     setExpandedColCategories: React.Dispatch<React.SetStateAction<string[]>>;
     setExpandedColSubcategories: React.Dispatch<React.SetStateAction<string[]>>;
     originalCollectionIds?: Set<number>;
+    bidSteps: BidStep[];
+    setBidSteps: React.Dispatch<React.SetStateAction<BidStep[]>>;
+    disabled?: boolean;
 }
 
 export const CollectionsSection: React.FC<CollectionsSectionProps> = ({
@@ -44,6 +47,9 @@ export const CollectionsSection: React.FC<CollectionsSectionProps> = ({
     setExpandedColCategories,
     setExpandedColSubcategories,
     originalCollectionIds,
+    bidSteps,
+    setBidSteps,
+    disabled,
 }) => {
     const toggleColCategory = (catId: string) => {
         setExpandedColCategories(prev =>
@@ -88,10 +94,12 @@ export const CollectionsSection: React.FC<CollectionsSectionProps> = ({
                     id={`col-${col.id}`}
                     checked={selectedCollections.includes(col.id)}
                     onCheckedChange={() => {
+                        if (disabled) return;
                         setSelectedCollections((prev) =>
                             prev.includes(col.id) ? prev.filter((id) => id !== col.id) : [...prev, col.id]
                         );
                     }}
+                    disabled={disabled}
                 />
                 {colImage ? (
                     <img src={colImage} alt={col.name[language]} className="w-10 h-10 rounded object-cover border border-border shrink-0" />
@@ -100,7 +108,7 @@ export const CollectionsSection: React.FC<CollectionsSectionProps> = ({
                         <Layers className="w-4 h-4 text-muted-foreground" />
                     </div>
                 )}
-                <label htmlFor={`col-${col.id}`} className="flex-1 cursor-pointer text-sm min-w-0">
+                <label htmlFor={`col-${col.id}`} className={`flex-1 text-sm min-w-0 ${disabled ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}`}>
                     <span className="font-medium">{col.lotNumber}</span>
                     <span className="text-muted-foreground ml-2 truncate">{col.name[language]}</span>
                 </label>
@@ -120,10 +128,11 @@ export const CollectionsSection: React.FC<CollectionsSectionProps> = ({
             <button
                 type="button"
                 onClick={() => {
+                    if (disabled && !collectionsExpanded) return;
                     setCollectionsExpanded(!collectionsExpanded);
                     if (!collectionsExpanded) { setLotsExpanded(false); setStepsExpanded(false); }
                 }}
-                className={`flex items-center justify-between w-full p-3 border rounded-md hover:bg-muted/50 transition-all duration-300 cursor-pointer shrink-0 ${collectionsExpanded ? "rounded-b-none border-b-0" : ""}`}
+                className={`flex items-center justify-between w-full p-3 border rounded-md hover:bg-muted/50 transition-all duration-300 cursor-pointer shrink-0 ${collectionsExpanded ? "rounded-b-none border-b-0" : ""} ${disabled ? "opacity-70" : ""}`}
             >
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">
@@ -148,6 +157,7 @@ export const CollectionsSection: React.FC<CollectionsSectionProps> = ({
                             value={collectionSearch}
                             onChange={(e) => setCollectionSearch(e.target.value)}
                             className="pl-8 h-8 text-sm"
+                            disabled={disabled}
                         />
                     </div>
                 </div>
@@ -176,11 +186,12 @@ export const CollectionsSection: React.FC<CollectionsSectionProps> = ({
                                                 <span className="text-xs text-muted-foreground flex items-center gap-1"><Layers className="w-3 h-3" />{catCollections.length}</span>
                                                 <span className="flex-1" />
                                             </button>
-                                            <label className="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer hover:bg-muted/50 transition-colors" onClick={(e) => e.stopPropagation()}>
+                                             <label className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"}`} onClick={(e) => { if (disabled) e.preventDefault(); e.stopPropagation(); }}>
                                                 <Checkbox checked={isCatFullySelected} onCheckedChange={(checked) => {
+                                                    if (disabled) return;
                                                     if (checked) setSelectedCollections(prev => [...new Set([...prev, ...allCatColIds])]);
                                                     else setSelectedCollections(prev => prev.filter(id => !allCatColIds.includes(id)));
-                                                }} />
+                                                }} disabled={disabled} />
                                                 <span className="text-xs text-muted-foreground">{language === "en" ? "Select all" : "Odaberi sve"}</span>
                                             </label>
                                         </div>
@@ -200,11 +211,12 @@ export const CollectionsSection: React.FC<CollectionsSectionProps> = ({
                                                                     <span className="text-xs text-muted-foreground flex items-center gap-1"><Layers className="w-3 h-3" />{subCollections.length}</span>
                                                                     <span className="flex-1" />
                                                                 </button>
-                                                                <label className="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer hover:bg-muted/50 transition-colors" onClick={(e) => e.stopPropagation()}>
+                                                                 <label className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"}`} onClick={(e) => { if (disabled) e.preventDefault(); e.stopPropagation(); }}>
                                                                     <Checkbox checked={isSubFullySelected} onCheckedChange={(checked) => {
+                                                                        if (disabled) return;
                                                                         if (checked) setSelectedCollections(prev => [...new Set([...prev, ...allSubColIds])]);
                                                                         else setSelectedCollections(prev => prev.filter(id => !allSubColIds.includes(id)));
-                                                                    }} />
+                                                                    }} disabled={disabled} />
                                                                     <span className="text-xs text-muted-foreground">{language === "en" ? "Select all" : "Odaberi sve"}</span>
                                                                 </label>
                                                             </div>

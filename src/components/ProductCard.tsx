@@ -44,7 +44,8 @@ const ProductCard = ({ product, searchQuery = "" }: ProductCardProps) => {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const displayName = language === "en" ? product.name : product.namesr;
-  const favorited = isFavorite(product.id);
+  // Use product.id (unique numeric ID) for favorites, not lot number
+  const favorited = isFavorite(Number(product.id));
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -53,7 +54,8 @@ const ProductCard = ({ product, searchQuery = "" }: ProductCardProps) => {
 
   const handleConfirmFavorite = () => {
     const willBeFavorite = !favorited;
-    toggleFavorite(product.id);
+    // Use product.id (unique numeric ID) for favorites, not lot number
+    toggleFavorite(Number(product.id));
 
     toast({
       title: willBeFavorite

@@ -52,6 +52,7 @@ export interface Auction {
 export type LotState = 'new' | 'used' | 'refurbished' | 'antique' | 'restored';
 export type ProductStatus = 'available' | 'sold' | 'on_auction' | 'withdrawn';
 export type CollectionStatus = 'available' | 'on_auction' | 'sold' | 'withdrawn';
+export type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'refunded' | 'cancelled';
 
 export interface Collection {
   id: number;
@@ -90,6 +91,22 @@ export interface Product {
   status: ProductStatus;
   startingPrice?: number;
   hasBids?: boolean;
+}
+
+export interface Payment {
+  id: string;
+  itemId: number;
+  itemType: 'product' | 'collection';
+  lotNumber: string;
+  lotName: { en: string; sr: string };
+  auctionTitle: { en: string; sr: string };
+  buyerName: string;
+  buyerEmail: string;
+  amount: number;
+  status: PaymentStatus;
+  wonDate: string;
+  paymentDeadline: string;
+  paidDate?: string;
 }
 
 export interface Bid {

@@ -46,94 +46,31 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 
-type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'refunded' | 'cancelled';
+
+import { Payment, PaymentStatus } from '@/contexts/DataContext';
+import { PaymentService } from '@/services/paymentService';
+import { ProductService } from '@/services/productService';
+import { CollectionService } from '@/services/collectionService';
+import { useEffect } from 'react';
+
 type BulkAction = 'paid' | 'pending' | 'cancelled' | 'refunded' | 'delete';
-
-interface Payment {
-  id: string;
-  lotNumber: string;
-  lotName: { en: string; sr: string };
-  auctionTitle: { en: string; sr: string };
-  buyerName: string;
-  buyerEmail: string;
-  amount: number;
-  status: PaymentStatus;
-  wonDate: string;
-  paymentDeadline: string;
-  paidDate?: string;
-}
-
-const initialPayments: Payment[] = [
-  {
-    id: 'PAY-001',
-    lotNumber: 'Lot #002',
-    lotName: { en: '18th Century Oil Portrait', sr: 'Uljani portret iz 18. veka' },
-    auctionTitle: { en: 'Winter Fine Art & Antiques', sr: 'Zimska Aukcija Umetnosti i Antikviteta' },
-    buyerName: 'Marko Petrović',
-    buyerEmail: 'marko@example.com',
-    amount: 12000,
-    status: 'paid',
-    wonDate: '2024-01-10',
-    paymentDeadline: '2024-01-17',
-    paidDate: '2024-01-14',
-  },
-  {
-    id: 'PAY-002',
-    lotNumber: 'Lot #006',
-    lotName: { en: 'Georgian Sterling Silver Tea Set', sr: 'Gruzijski čajni set od sterling srebra' },
-    auctionTitle: { en: 'Autumn Furniture Auction', sr: 'Jesenja Aukcija Nameštaja' },
-    buyerName: 'Ana Jovanović',
-    buyerEmail: 'ana@example.com',
-    amount: 6200,
-    status: 'pending',
-    wonDate: '2024-01-18',
-    paymentDeadline: '2024-01-25',
-  },
-  {
-    id: 'PAY-003',
-    lotNumber: 'Lot #003',
-    lotName: { en: 'Art Deco Diamond Necklace', sr: 'Art Deko dijamantska ogrlica' },
-    auctionTitle: { en: 'Estate Jewelry Collection', sr: 'Kolekcija Nakita iz Ostavština' },
-    buyerName: 'Nikola Ilić',
-    buyerEmail: 'nikola@example.com',
-    amount: 28000,
-    status: 'overdue',
-    wonDate: '2024-01-05',
-    paymentDeadline: '2024-01-12',
-  },
-  {
-    id: 'PAY-004',
-    lotNumber: 'Lot #001',
-    lotName: { en: 'Victorian Mahogany Writing Desk', sr: 'Viktorijanski pisaći sto od mahagonija' },
-    auctionTitle: { en: 'Winter Fine Art & Antiques', sr: 'Zimska Aukcija Umetnosti i Antikviteta' },
-    buyerName: 'Jelena Đorđević',
-    buyerEmail: 'jelena@example.com',
-    amount: 4500,
-    status: 'refunded',
-    wonDate: '2024-01-08',
-    paymentDeadline: '2024-01-15',
-    paidDate: '2024-01-12',
-  },
-  {
-    id: 'PAY-005',
-    lotNumber: 'Lot #005',
-    lotName: { en: 'French Ormolu Mantel Clock', sr: 'Francuski sat za kamin od ormolua' },
-    auctionTitle: { en: 'Winter Fine Art & Antiques', sr: 'Zimska Aukcija Umetnosti i Antikviteta' },
-    buyerName: 'Stefan Nikolić',
-    buyerEmail: 'stefan@example.com',
-    amount: 8500,
-    status: 'pending',
-    wonDate: '2024-01-20',
-    paymentDeadline: '2024-01-27',
-  },
-];
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50] as const;
 
 const AdminPayments = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
-  const [payments, setPayments] = useState<Payment[]>(initialPayments);
+
+  const getAllowedActions = (status: PaymentStatus): PaymentStatus[] => {
+    switch (status) {
+      case 'pending': return ['paid', 'cancelled'];
+      case 'paid': return ['refunded'];
+      case 'overdue': return ['paid', 'cancelled'];
+      default: return []; // cancelled, refunded
+    }
+  };
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
@@ -142,6 +79,14 @@ const AdminPayments = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+
+  useEffect(() => {
+    const unsub = PaymentService.subscribeToAll((newPayments) => {
+      setPayments(newPayments);
+      setIsLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
   const getStatusBadge = (status: PaymentStatus) => {
     switch (status) {
@@ -235,24 +180,28 @@ const AdminPayments = () => {
   };
 
   // Single item actions
-  const handleStatusChange = () => {
+  const handleStatusChange = async () => {
     if (!confirmAction) return;
     const { paymentId, action } = confirmAction;
-    if (action === 'delete') {
-      setPayments((prev) => prev.filter((p) => p.id !== paymentId));
-      setSelectedIds((prev) => { const n = new Set(prev); n.delete(paymentId); return n; });
-      toast({
-        title: language === 'en' ? 'Payment Deleted' : 'Plaćanje Obrisano',
-        description: language === 'en' ? `Payment ${paymentId} has been deleted.` : `Plaćanje ${paymentId} je obrisano.`,
-      });
-    } else {
-      setPayments((prev) =>
-        prev.map((p) =>
-          p.id === paymentId
-            ? { ...p, status: action, paidDate: action === 'paid' ? new Date().toISOString().split('T')[0] : p.paidDate }
-            : p
-        )
-      );
+    try {
+      const updates: any = { status: action as PaymentStatus };
+      if (action === 'paid') {
+        updates.paidDate = new Date().toISOString().split('T')[0];
+      }
+      await PaymentService.update(paymentId, updates);
+
+      // Automated status reversal
+      if (action === 'cancelled' || action === 'refunded') {
+        const payment = payments.find(p => p.id === paymentId);
+        if (payment && payment.itemId) {
+          const itemUpdates = { status: 'available' as const, auctionId: 0, hasBids: false };
+          if (payment.itemType === 'product') {
+            await ProductService.update(payment.itemId, itemUpdates);
+          } else if (payment.itemType === 'collection') {
+            await CollectionService.update(payment.itemId, itemUpdates);
+          }
+        }
+      }
       const statusLabels: Record<string, { en: string; sr: string }> = {
         paid: { en: 'paid', sr: 'plaćena' },
         pending: { en: 'pending', sr: 'na čekanju' },
@@ -265,31 +214,44 @@ const AdminPayments = () => {
           ? `Payment ${paymentId} marked as ${statusLabels[action]?.en}`
           : `Uplata ${paymentId} označena kao ${statusLabels[action]?.sr}`,
       });
+    } catch (error) {
+      toast({
+        title: language === 'en' ? 'Error' : 'Greška',
+        description: language === 'en' ? 'Failed to update payment.' : 'Neuspelo ažuriranje plaćanja.',
+        variant: 'destructive'
+      });
     }
     setConfirmAction(null);
   };
 
   // Bulk actions
-  const handleBulkAction = () => {
+  const handleBulkAction = async () => {
     if (!bulkConfirmAction || selectedIds.size === 0) return;
     const action = bulkConfirmAction;
 
-    if (action === 'delete') {
-      const count = selectedIds.size;
-      setPayments((prev) => prev.filter((p) => !selectedIds.has(p.id)));
-      toast({
-        title: language === 'en' ? 'Payments Deleted' : 'Plaćanja Obrisana',
-        description: language === 'en' ? `${count} payment(s) deleted.` : `${count} plaćanje/a obrisano.`,
-      });
-    } else {
+    try {
+      const ids = Array.from(selectedIds);
       const affected = payments.filter((p) => selectedIds.has(p.id) && p.status !== action).length;
-      setPayments((prev) =>
-        prev.map((p) =>
-          selectedIds.has(p.id) && p.status !== action
-            ? { ...p, status: action, paidDate: action === 'paid' ? new Date().toISOString().split('T')[0] : p.paidDate }
-            : p
-        )
-      );
+      const updates: any = { status: action as PaymentStatus };
+      if (action === 'paid') {
+        updates.paidDate = new Date().toISOString().split('T')[0];
+      }
+      for (const id of ids) {
+        await PaymentService.update(id, updates);
+
+        // Automated status reversal in bulk
+        if (action === 'cancelled' || action === 'refunded') {
+          const payment = payments.find(p => p.id === id);
+          if (payment && payment.itemId) {
+            const itemUpdates = { status: 'available' as const, auctionId: 0, hasBids: false };
+            if (payment.itemType === 'product') {
+              await ProductService.update(payment.itemId, itemUpdates);
+            } else if (payment.itemType === 'collection') {
+              await CollectionService.update(payment.itemId, itemUpdates);
+            }
+          }
+        }
+      }
       const statusLabels: Record<string, { en: string; sr: string }> = {
         paid: { en: 'paid', sr: 'plaćena' },
         pending: { en: 'pending', sr: 'na čekanju' },
@@ -301,6 +263,12 @@ const AdminPayments = () => {
         description: language === 'en'
           ? `${affected} payment(s) marked as ${statusLabels[action]?.en}`
           : `${affected} plaćanje/a označeno kao ${statusLabels[action]?.sr}`,
+      });
+    } catch (error) {
+      toast({
+        title: language === 'en' ? 'Error' : 'Greška',
+        description: language === 'en' ? 'Failed to perform bulk action.' : 'Neuspela grupna akcija.',
+        variant: 'destructive'
       });
     }
     setSelectedIds(new Set());
@@ -395,7 +363,11 @@ const AdminPayments = () => {
       </div>
 
 
-      {payments.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center p-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : payments.length === 0 ? (
         <div className="bg-card rounded-lg border border-border p-8 md:p-12 text-center">
           <div className="text-4xl mb-4">💳</div>
           <h3 className="text-lg font-medium text-foreground mb-2">
@@ -483,7 +455,12 @@ const AdminPayments = () => {
                     <DropdownMenuContent>
                       {(['paid', 'pending', 'cancelled', 'refunded'] as BulkAction[]).map((status) => {
                         const selectedPayments = payments.filter((p) => selectedIds.has(p.id));
+                        // Check if this status is allowed for ALL selected payments
+                        const isAllowedForAll = selectedPayments.every(p => getAllowedActions(p.status).includes(status as any));
                         const allHaveStatus = selectedPayments.every((p) => p.status === status);
+
+                        if (!isAllowedForAll && !allHaveStatus) return null;
+
                         const colorClass = status === 'paid' ? 'text-green-600' : status === 'pending' ? 'text-yellow-600' : status === 'cancelled' ? 'text-gray-600' : 'text-blue-600';
                         const Icon = status === 'paid' ? CheckCircle : status === 'pending' ? Clock : status === 'cancelled' ? Ban : XCircle;
                         const labels: Record<string, { en: string; sr: string }> = {
@@ -506,15 +483,6 @@ const AdminPayments = () => {
                       })}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setBulkConfirmAction('delete')}
-                    className="text-destructive hover:text-destructive hover:bg-transparent"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    {language === 'en' ? 'Delete' : 'Obriši'}
-                  </Button>
                 </div>
               </div>
             ) : (
@@ -557,35 +525,35 @@ const AdminPayments = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {payment.status !== 'paid' && (
+                          {getAllowedActions(payment.status).includes('paid') && (
                             <DropdownMenuItem className="text-green-600" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'paid' })}>
                               <CheckCircle className="w-4 h-4 mr-2" />
                               {language === 'en' ? 'Mark as Paid' : 'Označiti kao Plaćeno'}
                             </DropdownMenuItem>
                           )}
-                          {payment.status !== 'pending' && (
+                          {getAllowedActions(payment.status).includes('pending') && (
                             <DropdownMenuItem className="text-yellow-600" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'pending' })}>
                               <Clock className="w-4 h-4 mr-2" />
                               {language === 'en' ? 'Mark as Pending' : 'Označiti kao Na čekanju'}
                             </DropdownMenuItem>
                           )}
-                          {payment.status !== 'cancelled' && (
+                          {getAllowedActions(payment.status).includes('cancelled') && (
                             <DropdownMenuItem className="text-gray-600" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'cancelled' })}>
                               <Ban className="w-4 h-4 mr-2" />
                               {language === 'en' ? 'Mark as Cancelled' : 'Označiti kao Otkazano'}
                             </DropdownMenuItem>
                           )}
-                          {payment.status !== 'refunded' && (
+                          {getAllowedActions(payment.status).includes('refunded') && (
                             <DropdownMenuItem className="text-blue-600" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'refunded' })}>
                               <XCircle className="w-4 h-4 mr-2" />
                               {language === 'en' ? 'Mark as Refunded' : 'Označiti kao Refundirano'}
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'delete' })}>
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            {language === 'en' ? 'Delete' : 'Obriši'}
-                          </DropdownMenuItem>
+                          {getAllowedActions(payment.status).length === 0 && (
+                            <DropdownMenuItem disabled className="text-muted-foreground italic text-xs">
+                              {language === 'en' ? 'No actions available' : 'Nema dostupnih akcija'}
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -683,35 +651,35 @@ const AdminPayments = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                {payment.status !== 'paid' && (
+                                {getAllowedActions(payment.status).includes('paid') && (
                                   <DropdownMenuItem className="text-green-600" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'paid' })}>
                                     <CheckCircle className="w-4 h-4 mr-2" />
                                     {language === 'en' ? 'Mark as Paid' : 'Označiti kao Plaćeno'}
                                   </DropdownMenuItem>
                                 )}
-                                {payment.status !== 'pending' && (
+                                {getAllowedActions(payment.status).includes('pending') && (
                                   <DropdownMenuItem className="text-yellow-600" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'pending' })}>
                                     <Clock className="w-4 h-4 mr-2" />
                                     {language === 'en' ? 'Mark as Pending' : 'Označiti kao Na čekanju'}
                                   </DropdownMenuItem>
                                 )}
-                                {payment.status !== 'cancelled' && (
+                                {getAllowedActions(payment.status).includes('cancelled') && (
                                   <DropdownMenuItem className="text-gray-600" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'cancelled' })}>
                                     <Ban className="w-4 h-4 mr-2" />
                                     {language === 'en' ? 'Mark as Cancelled' : 'Označiti kao Otkazano'}
                                   </DropdownMenuItem>
                                 )}
-                                {payment.status !== 'refunded' && (
+                                {getAllowedActions(payment.status).includes('refunded') && (
                                   <DropdownMenuItem className="text-blue-600" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'refunded' })}>
                                     <XCircle className="w-4 h-4 mr-2" />
                                     {language === 'en' ? 'Mark as Refunded' : 'Označiti kao Refundirano'}
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive" onClick={() => setConfirmAction({ paymentId: payment.id, action: 'delete' })}>
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  {language === 'en' ? 'Delete' : 'Obriši'}
-                                </DropdownMenuItem>
+                                {getAllowedActions(payment.status).length === 0 && (
+                                  <DropdownMenuItem disabled className="text-muted-foreground italic text-xs">
+                                    {language === 'en' ? 'No actions available' : 'Nema dostupnih akcija'}
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </td>

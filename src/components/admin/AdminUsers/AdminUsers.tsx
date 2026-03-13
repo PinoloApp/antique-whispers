@@ -141,7 +141,11 @@ const AdminUsersContent = ({ users }: { users: User[] }) => {
                         onSearchChange={handleSearchChange}
                         selectFilters={selectFilters}
                         filteredCount={filteredUsers.length}
-                        itemsFoundText={t("itemsFound")}
+                        itemsFoundText={
+                            filteredUsers.length === 1
+                                ? (language === "en" ? "user found" : "korisnik pronađen")
+                                : (language === "en" ? "users found" : "korisnika pronađeno")
+                        }
                         placeholder={language === "en" ? "Search users..." : "Pretraži korisnike..."}
                     />
                     <BulkActionsBar

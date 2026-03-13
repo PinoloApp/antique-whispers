@@ -247,42 +247,55 @@ const Index = () => {
     });
   }, [selectedCategory, selectedSubcategory, searchQuery, language, relevantProducts, categories, priceRange]);
 
-  // Sort filtered products
-  const sortedProducts = useMemo(() => {
-    const sorted = [...filteredProducts];
+  // Combine filtered products and collections
+  const filteredItems = useMemo(() => {
+    return [...filteredCollections, ...filteredProducts];
+  }, [filteredProducts, filteredCollections]);
+
+  // Sort unified items
+  const sortedItems = useMemo(() => {
+    const sorted = [...filteredItems];
 
     switch (sortOption) {
       case "lot-asc":
-        return sorted.sort((a, b) => a.lot.localeCompare(b.lot, undefined, { numeric: true }));
+        return sorted.sort((a, b) => {
+          const lotA = 'lotNumber' in a ? a.lotNumber : a.lot;
+          const lotB = 'lotNumber' in b ? b.lotNumber : b.lot;
+          return (lotA || "").localeCompare(lotB || "", undefined, { numeric: true });
+        });
       case "lot-desc":
-        return sorted.sort((a, b) => b.lot.localeCompare(a.lot, undefined, { numeric: true }));
+        return sorted.sort((a, b) => {
+          const lotA = 'lotNumber' in a ? a.lotNumber : a.lot;
+          const lotB = 'lotNumber' in b ? b.lotNumber : b.lot;
+          return (lotB || "").localeCompare(lotA || "", undefined, { numeric: true });
+        });
       case "price-asc":
-        return sorted.sort((a, b) => a.currentBid - b.currentBid);
+        return sorted.sort((a, b) => (a.currentBid || 0) - (b.currentBid || 0));
       case "price-desc":
-        return sorted.sort((a, b) => b.currentBid - a.currentBid);
+        return sorted.sort((a, b) => (b.currentBid || 0) - (a.currentBid || 0));
       case "name-asc":
         return sorted.sort((a, b) => {
-          const nameA = language === "en" ? a.name : a.namesr;
-          const nameB = language === "en" ? b.name : b.namesr;
-          return nameA.localeCompare(nameB);
+          const nameA = 'lotNumber' in a ? a.name[language as "en" | "sr"] : (language === "en" ? a.name : a.namesr);
+          const nameB = 'lotNumber' in b ? b.name[language as "en" | "sr"] : (language === "en" ? b.name : b.namesr);
+          return (nameA || "").localeCompare(nameB || "");
         });
       case "name-desc":
         return sorted.sort((a, b) => {
-          const nameA = language === "en" ? a.name : a.namesr;
-          const nameB = language === "en" ? b.name : b.namesr;
-          return nameB.localeCompare(nameA);
+          const nameA = 'lotNumber' in a ? a.name[language as "en" | "sr"] : (language === "en" ? a.name : a.namesr);
+          const nameB = 'lotNumber' in b ? b.name[language as "en" | "sr"] : (language === "en" ? b.name : b.namesr);
+          return (nameB || "").localeCompare(nameA || "");
         });
       default:
         return sorted;
     }
-  }, [filteredProducts, sortOption, language]);
+  }, [filteredItems, sortOption, language]);
 
   // Pagination calculations
-  const totalPages = Math.ceil(sortedProducts.length / itemsPerPage);
-  const paginatedProducts = useMemo(() => {
+  const totalPages = Math.ceil(sortedItems.length / itemsPerPage);
+  const paginatedItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return sortedProducts.slice(startIndex, startIndex + itemsPerPage);
-  }, [sortedProducts, currentPage, itemsPerPage]);
+    return sortedItems.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedItems, currentPage, itemsPerPage]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -385,18 +398,18 @@ const Index = () => {
               <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <p className="text-sm text-muted-foreground">
                   {(() => {
-                    const n = sortedProducts.length;
+                    const prods = sortedItems.filter(i => !('lotNumber' in i)).length;
+                    const cols = sortedItems.filter(i => 'lotNumber' in i).length;
+                    
                     const lotLabel = language === "en"
-                      ? `${n} ${n === 1 ? "item" : "items"}`
-                      : `${n} ${n === 1 ? "lot" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "lota" : "lotova"}`;
-                    return lotLabel;
-                  })()}
-                  {filteredCollections.length > 0 && (() => {
-                    const c = filteredCollections.length;
+                      ? `${prods} ${prods === 1 ? "item" : "items"}`
+                      : `${prods} ${prods === 1 ? "lot" : prods % 10 >= 2 && prods % 10 <= 4 && (prods % 100 < 10 || prods % 100 >= 20) ? "lota" : "lotova"}`;
+                    
                     const colLabel = language === "en"
-                      ? `${c} ${c === 1 ? "collection" : "collections"}`
-                      : `${c} ${c === 1 ? "kolekcija" : c % 10 >= 2 && c % 10 <= 4 && (c % 100 < 10 || c % 100 >= 20) ? "kolekcije" : "kolekcija"}`;
-                    return <span> + {colLabel}</span>;
+                      ? `${cols} ${cols === 1 ? "collection" : "collections"}`
+                      : `${cols} ${cols === 1 ? "kolekcija" : cols % 10 >= 2 && cols % 10 <= 4 && (cols % 100 < 10 || cols % 100 >= 20) ? "kolekcije" : "kolekcija"}`;
+                      
+                    return cols > 0 ? <span>{lotLabel} + {colLabel}</span> : <span>{lotLabel}</span>;
                   })()}
                 </p>
                 <div className="flex items-center gap-3">
@@ -449,16 +462,13 @@ const Index = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                {/* Collections first */}
-                {filteredCollections.map((collection, index) => (
-                  <div key={`col-${collection.id}`} className="animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
-                    <CollectionCard collection={collection} />
-                  </div>
-                ))}
-                {/* Then lots */}
-                {paginatedProducts.map((product, index) => (
-                  <div key={product.id} className="animate-fade-in" style={{ animationDelay: `${(filteredCollections.length + index) * 0.05}s` }}>
-                    <ProductCard product={product} searchQuery={searchQuery} />
+                {paginatedItems.map((item, index) => (
+                  <div key={`${'lotNumber' in item ? 'col' : 'prod'}-${item.id}`} className="animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
+                    {'lotNumber' in item ? (
+                      <CollectionCard collection={item as any} />
+                    ) : (
+                      <ProductCard product={item as any} searchQuery={searchQuery} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -500,7 +510,7 @@ const Index = () => {
                 </div>
               )}
 
-              {sortedProducts.length === 0 && filteredCollections.length === 0 && (
+              {sortedItems.length === 0 && (
                 <div className="text-center py-16">
                   <p className="text-muted-foreground text-lg">
                     {language === "en" ? "No items found matching your criteria." : "Nema pronađenih predmeta koji odgovaraju vašim kriterijumima."}

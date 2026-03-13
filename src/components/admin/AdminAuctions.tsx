@@ -53,6 +53,7 @@ const AdminAuctions = () => {
     getProductBids,
     collections,
     products,
+    categories,
     onSuccess: refresh,
   });
 
@@ -152,9 +153,6 @@ const AdminAuctions = () => {
                   expandedAuctionIds={expandedAuctionIds}
                   toggleAuctionExpand={toggleAuctionExpand}
                   getAuctionTotalBids={getAuctionTotalBids}
-                  getAuctionLots={getAuctionLots}
-                  getAuctionCategories={getAuctionCategories}
-                  getAuctionLotsWithBids={getAuctionLotsWithBids}
                   auctionActions={auctionActions}
                   auctionForm={auctionForm}
                   expandedContentProps={expandedContentProps}

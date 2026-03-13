@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { Product, Auction, useData } from "@/contexts/DataContext";
 import { ProductService } from "@/services/productService";
+import { LotAssignmentService } from "@/services/lotAssignmentService";
 import { useToast } from "@/hooks/use-toast";
 
 export type AssignmentDialogKey = "selectAuction" | "confirmAssign" | "confirmSkip";
@@ -49,11 +50,10 @@ export const useAuctionAssignment = (language: "en" | "sr") => {
         setIsMutating(true);
 
         try {
-            // Update product status to on_auction and set auctionId
-            await ProductService.update(savedProductId, {
-                status: "on_auction",
-                auctionId: auctionId
-            });
+            const nextLotNum = await LotAssignmentService.getNextLotNumber(auctionId);
+
+            // Update product status, auctionId and lot number
+            await LotAssignmentService.assignLotToItem(auctionId, savedProductId, 'product', nextLotNum);
 
             // Add product to auction's lotIds
             const auction = auctions.find((a) => a.id === auctionId);

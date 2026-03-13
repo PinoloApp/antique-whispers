@@ -5,6 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Trash2, PlayCircle, Pause, Clock } from "lucide-react";
 import { ProductDialogKey } from "../config/productDialogTypes";
 import { isAuctionActiveOrUpcoming } from "@/utils/auctionUtils";
+import { NotificationService } from "@/services/notificationService";
+import { UserService } from "@/services/userService";
 
 interface UseProductBulkActionsProps {
     allProducts: Product[];
@@ -183,6 +185,40 @@ export const useProductBulkActions = ({
                         ? `${selectedProducts.length} products status changed to ${statusLabelEn}.`
                         : `${selectedProducts.length} proizvoda je dobilo status ${statusLabelSr}.`,
             });
+
+            // SEND NOTIFICATIONS IF WITHDRAWN
+            if (bulkStatus === "withdrawn") {
+                for (const id of selectedProducts) {
+                    const product = allProducts.find(p => p.id === id);
+                    if (!product) continue;
+
+                    const parentAuction = auctions.find((a) => a.lotIds.includes(id));
+                    if (parentAuction) {
+                        const interestedUserIds = await UserService.getInterestedUsers(id, false);
+                        const notificationPromises = interestedUserIds.map(userId =>
+                            NotificationService.addNotification({
+                                userId,
+                                type: "info",
+                                title: "Predmet povučen",
+                                titleEn: "Item Withdrawn",
+                                description: `Lot ${product.lot}: ${product.namesr} je povučen sa aukcije ${parentAuction.title.sr}.`,
+                                descriptionEn: `Lot ${product.lot}: ${product.name} has been withdrawn from auction ${parentAuction.title.en}.`,
+                                timestamp: new Date(),
+                                read: false,
+                                productId: id
+                            })
+                        );
+                        await Promise.all(notificationPromises);
+
+                        // REMOVE FROM FAVORITES
+                        const favoriters = await UserService.getInterestedUsers(id, false);
+                        if (favoriters.length > 0) {
+                            await UserService.removeFromFavorites(id, favoriters, false);
+                        }
+                    }
+                }
+            }
+
             onSuccess?.();
         } catch (error) {
             console.error("Error bulk updating status:", error);
