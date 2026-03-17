@@ -4,7 +4,7 @@ import { User, UserBidHistory, UserRole, UserStatus } from "@/types/adminUsers.t
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User as UserIcon, Gavel, Trophy, XCircle, Clock, Pencil } from "lucide-react";
+import { User as UserIcon, Gavel, Trophy, XCircle, Clock, Pencil, ChevronDown } from "lucide-react";
 import { getRoleBadgeConfig, getStatusBadgeConfig, getUserInfoFields } from "@/utils/adminUsers.utils";
 import { USER_STAT_FIELDS } from "@/constants/adminUsers.constants";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -79,55 +79,141 @@ const UserViewStats = React.memo(({ user, t }: { user: User, t: (key: string) =>
 ));
 UserViewStats.displayName = "UserViewStats";
 
-const UserViewBidHistory = React.memo(({ bidHistory = [], t }: { bidHistory?: UserBidHistory[], t: (key: string) => string }) => (
-    <div className="pt-4 border-t border-border">
-        <div className="flex items-center gap-2 mb-3">
-            <Gavel className="w-4 h-4 text-primary" />
-            <h4 className="font-medium text-foreground">{t("bidHistory")}</h4>
-        </div>
-        {bidHistory.length > 0 ? (
-            <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                {bidHistory.map((bid) => {
-                    const statusConfig = BID_STATUS_CONFIG[bid.status];
-                    const StatusIcon = statusConfig?.icon;
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useNavigate } from "react-router-dom";
 
-                    return (
-                        <div key={bid.id} className="bg-muted/30 rounded-lg p-3 border border-border/50">
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">#{bid.lotNumber}</span>
-                                        <span className="font-medium text-sm text-foreground truncate">{bid.lotName}</span>
-                                    </div>
-                                    <div className="text-xs text-muted-foreground mt-1">{bid.auctionName}</div>
-                                </div>
-                                <div className="text-right flex-shrink-0">
-                                    <div className="font-semibold text-sm text-foreground">
-                                        {bid.bidAmount.toLocaleString()} RSD
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">{format(bid.bidDate, "dd.MM.yyyy")}</div>
-                                </div>
-                            </div>
-                            <div className="mt-2">
-                                {statusConfig && (
-                                    <Badge className={statusConfig.className}>
-                                        <StatusIcon className="w-3 h-3 mr-1" />
-                                        {t(statusConfig.labelKey)}
-                                    </Badge>
-                                )}
-                            </div>
-                        </div>
-                    )
-                })}
+const UserViewBidHistory = React.memo(({ bidHistory = [], t }: { bidHistory?: UserBidHistory[], t: (key: string) => string }) => {
+    const { language } = useLanguage();
+    const navigate = useNavigate();
+    const [expandedLots, setExpandedLots] = React.useState<Record<string, boolean>>({});
+
+    const bidsByAuction = React.useMemo(() => {
+        const grouped = bidHistory.reduce<Record<string, any>>((acc, bid) => {
+            if (!acc[bid.auctionId]) {
+                acc[bid.auctionId] = {
+                    id: bid.auctionId,
+                    name: bid.auctionName,
+                    date: bid.auctionDate,
+                    lots: []
+                };
+            }
+            acc[bid.auctionId].lots.push(bid);
+            return acc;
+        }, {});
+
+        return Object.values(grouped);
+    }, [bidHistory]);
+
+    const getStatusBadge = (status: string) => {
+        const variants: Record<string, { label: string; className: string; icon: any }> = {
+            won: {
+                label: language === "en" ? "Won" : "Dobijeno",
+                className: "bg-green-500/10 text-green-700 border-green-200",
+                icon: Trophy,
+            },
+            active: {
+                label: language === "en" ? "Active" : "Aktivno",
+                className: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
+                icon: Clock,
+            },
+            lost: {
+                label: language === "en" ? "Lost" : "Izgubljeno",
+                className: "bg-red-500/10 text-red-700 border-red-200",
+                icon: XCircle,
+            },
+            cancelled: {
+                label: language === "en" ? "Cancelled" : "Otkazano",
+                className: "bg-slate-500/10 text-slate-600 border-slate-200",
+                icon: XCircle,
+            },
+            paused: {
+                label: language === "en" ? "Paused" : "Pauzirano",
+                className: "bg-orange-500/10 text-orange-600 border-orange-200",
+                icon: Clock,
+            },
+        };
+        const v = variants[status] || variants.lost;
+        const Icon = v.icon;
+
+        return (
+            <Badge variant="outline" className={`flex items-center gap-1 py-0 px-2 text-[10px] font-medium ${v.className}`}>
+                <Icon className="w-3 h-3" />
+                {v.label}
+            </Badge>
+        );
+    };
+
+    return (
+        <div className="pt-4 border-t border-border">
+            <div className="flex items-center gap-2 mb-3">
+                <Gavel className="w-4 h-4 text-primary" />
+                <h4 className="font-medium text-foreground">{t("bidHistory")}</h4>
             </div>
-        ) : (
-            <div className="text-center py-6 text-muted-foreground text-sm">
-                <Gavel className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                {t("noBidHistory")}
-            </div>
-        )}
-    </div>
-));
+            {bidsByAuction.length > 0 ? (
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                    {bidsByAuction.map((auction) => {
+                        const isExpanded = expandedLots[`auction-bid-${auction.id}`] ?? false;
+                        return (
+                            <Collapsible
+                                key={auction.id}
+                                open={isExpanded}
+                                onOpenChange={(open) =>
+                                    setExpandedLots((prev) => ({ ...prev, [`auction-bid-${auction.id}`]: open }))
+                                }
+                            >
+                                <CollapsibleTrigger asChild>
+                                    <div className="flex items-center gap-4 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer mb-1 bg-muted/20">
+                                        <div className="flex-1">
+                                            <p className="font-semibold text-sm text-foreground">{auction.name}</p>
+                                            <p className="text-[10px] text-muted-foreground">{auction.date}</p>
+                                        </div>
+                                        <Badge variant="outline" className="text-[10px]">
+                                            {auction.lots.length} {language === "en" ? "lots" : "lotova"}
+                                        </Badge>
+                                        <ChevronDown
+                                            className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                                        />
+                                    </div>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                    <div className="ml-2 border-l-2 border-primary/20 pl-4 space-y-2 mt-2 mb-4">
+                                        {auction.lots.map((bid: any) => (
+                                            <div
+                                                key={bid.id}
+                                                className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors cursor-default"
+                                            >
+                                                <img
+                                                    src={bid.image}
+                                                    alt={bid.lotName}
+                                                    className="w-10 h-10 rounded object-cover flex-shrink-0"
+                                                />
+                                                <div className="flex-1 min-w-0 text-xs">
+                                                    <div className="flex items-center gap-2 mb-0.5">
+                                                        <span className="font-bold text-primary">Lot #{bid.lotNumber}</span>
+                                                        {getStatusBadge(bid.status)}
+                                                    </div>
+                                                    <p className="font-medium text-foreground truncate">{bid.lotName}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-sm text-foreground">€{bid.bidAmount.toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                    <Gavel className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    {t("noBidHistory")}
+                </div>
+            )}
+        </div>
+    );
+});
 UserViewBidHistory.displayName = "UserViewBidHistory";
 
 interface UserViewDialogProps {

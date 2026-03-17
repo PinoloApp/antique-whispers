@@ -203,7 +203,7 @@ const AdminUsersContent = ({ users }: { users: User[] }) => {
 };
 
 const AdminUsers = () => {
-    const { users, setUsers, getAdminCount, addUser, updateUser, deleteUser, changeUserStatus, changeUserRole, isLoading } = useAdminUsers();
+    const { users, getAdminCount, addUser, updateUser, deleteUser, changeUserStatus, changeUserRole, isLoading } = useAdminUsers();
     const dialogState = useModalState();
     const { t } = useLanguage();
 
@@ -217,7 +217,7 @@ const AdminUsers = () => {
 
     return (
         <AdminUsersProvider
-            users={users} setUsers={setUsers} addUser={addUser} updateUser={updateUser}
+            users={users} addUser={addUser} updateUser={updateUser}
             deleteUser={deleteUser} changeUserStatus={changeUserStatus} changeUserRole={changeUserRole}
             getAdminCount={getAdminCount} dialogState={dialogState} t={t}
         >

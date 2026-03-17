@@ -7,8 +7,13 @@ export interface UserBidHistory {
     lotName: string;
     bidAmount: number;
     bidDate: Date;
-    status: "won" | "outbid" | "active";
+    status: "won" | "lost" | "active" | "cancelled" | "paused";
     auctionName: string;
+    productId: number;
+    auctionId: number;
+    itemType: "lot" | "collection";
+    image: string;
+    auctionDate: string;
 }
 
 export interface User {

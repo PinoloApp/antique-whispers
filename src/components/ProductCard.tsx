@@ -196,7 +196,7 @@ const ProductCard = ({ product, searchQuery = "", auctionId: contextAuctionId }:
           </div>
           <Button
             variant="outline"
-            className="w-full mt-2 bg-background text-black border-black hover:bg-black hover:text-white transition-all duration-300 group"
+            className="w-full mt-2 bg-background text-black border-black hover:bg-background hover:text-black transition-all duration-300 group"
             onClick={(e) => {
               e.stopPropagation();
               sessionStorage.setItem('indexScrollPos', window.scrollY.toString());

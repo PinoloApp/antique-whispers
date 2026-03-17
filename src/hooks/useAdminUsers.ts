@@ -1,17 +1,25 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { User, UserRole, UserStatus } from "@/types/adminUsers.types";
+import { User, UserBidHistory, UserRole, UserStatus } from "@/types/adminUsers.types";
 import { toast } from "@/hooks/use-toast";
+import { useData } from "@/contexts/DataContext";
+import { BidService } from "@/services/bidService";
+import { PaymentService } from "@/services/paymentService";
+import { Bid, Payment, Auction } from "@/contexts/DataContext";
+import { AuctionService } from "@/services/auctionService";
 
 export const useAdminUsers = () => {
-    const [users, setUsers] = useState<User[]>([]);
+    const [rawUsers, setRawUsers] = useState<User[]>([]);
+    const [bids, setBids] = useState<Bid[]>([]);
+    const [auctions, setAuctions] = useState<Auction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const { products, collections, collectionProducts } = useData();
 
     useEffect(() => {
         const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribeUsers = onSnapshot(q, (snapshot) => {
             const usersData: User[] = snapshot.docs.map(doc => {
                 const data = doc.data();
 
@@ -31,12 +39,9 @@ export const useAdminUsers = () => {
                     lastName: lastName || "",
                     createdAt: data.createdAt?.toDate() || new Date(),
                     lastLoginAt: data.lastLoginAt?.toDate(),
-                    totalBids: data.totalBids || 0,
-                    wonAuctions: data.wonAuctions || 0,
-                    bidHistory: data.bidHistory || []
                 } as User;
             });
-            setUsers(usersData);
+            setRawUsers(usersData);
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching users:", error);
@@ -44,8 +49,96 @@ export const useAdminUsers = () => {
             setIsLoading(false);
         });
 
-        return () => unsubscribe();
+        const unsubscribeBids = BidService.subscribeToAllBidsAdmin(setBids);
+        const unsubscribeAuctions = AuctionService.subscribeAll(setAuctions);
+
+        return () => {
+            unsubscribeUsers();
+            unsubscribeBids();
+            unsubscribeAuctions();
+        };
     }, []);
+
+    const users = useMemo(() => {
+        const language = "sr"; // Default for admin calculation or could be dynamic
+        return rawUsers.map(user => {
+            // Match Profile.tsx filter precisely (only by userId)
+            const userBids = bids.filter(b => (b as any).userId === user.id);
+            
+            // Replicate Profile.tsx bidHistory logic (Highest bid per unique Lot participation)
+            const uniqueLots: Record<string, UserBidHistory> = {};
+
+            [...userBids].sort((a, b) => b.maxAmount - a.maxAmount).forEach(bid => {
+                const bidPid = String(bid.productId);
+                const auctionIdVal = String(bid.auctionId);
+                const key = `${auctionIdVal}-${bidPid}`;
+
+                if (!uniqueLots[key]) {
+                    const item = products.find(p => String(p.id) === bidPid) ||
+                        collections.find(c => String(c.id) === bidPid) ||
+                        collectionProducts.find(p => String(p.id) === bidPid);
+
+                    const auction = auctions.find(a => String(a.id) === auctionIdVal);
+                    
+                    const snapEndDate = (bid as any).auctionEndDate;
+                    const isAuctionCompleted = auction?.status === "completed" || 
+                        (auction === undefined && snapEndDate && new Date() > (snapEndDate.toDate ? snapEndDate.toDate() : new Date(snapEndDate)));
+
+                    const snapStatus = (bid as any).auctionStatus;
+                    const effectiveStatus = auction?.status || snapStatus || "active";
+
+                    let status: "won" | "lost" | "active" | "cancelled" | "paused" = "active";
+                    
+                    if (effectiveStatus === "cancelled") {
+                        status = "cancelled";
+                    } else if (effectiveStatus === "paused") {
+                        status = "paused";
+                    } else if (isAuctionCompleted || effectiveStatus === "completed") {
+                        status = bid.isWinning ? "won" : "lost";
+                    } else {
+                        status = "active";
+                    }
+
+                    const itemName = item
+                        ? (item as any).name?.sr || (item as any).namesr || (item as any).name?.en || (item as any).name || `Lot #${bid.productId}`
+                        : `Lot #${bid.productId}`;
+
+                    const itemImage = item ? (item as any).image || ((item as any).images?.[0]) : "/placeholder.svg";
+                    const lotNumber = item ? ((item as any).lot || (item as any).lotNumber) : String(bid.productId);
+                    const auctionName = auction?.title?.sr || auction?.title?.en || (bid as any).auctionTitle?.sr || (bid as any).auctionTitle?.en || (bid as any).auctionTitle || "Aukcija";
+                    const auctionDate = auction?.endDate 
+                        ? new Date(auction.endDate).toLocaleDateString() 
+                        : (snapEndDate ? (snapEndDate.toDate ? snapEndDate.toDate().toLocaleDateString() : new Date(snapEndDate).toLocaleDateString()) : "N/A");
+
+                    const itemType = collections.find(c => c.id === bid.productId) ? 'collection' : 'lot';
+
+                    uniqueLots[key] = {
+                        id: bid.id,
+                        lotNumber: String(lotNumber),
+                        lotName: itemName,
+                        bidAmount: bid.maxAmount,
+                        bidDate: bid.timestamp,
+                        status,
+                        auctionName: String(auctionName),
+                        productId: bid.productId,
+                        auctionId: bid.auctionId,
+                        itemType,
+                        image: itemImage,
+                        auctionDate
+                    };
+                }
+            });
+
+            const bidHistory = Object.values(uniqueLots);
+            
+            return {
+                ...user,
+                totalBids: userBids.length,
+                wonAuctions: bidHistory.filter(h => h.status === "won").length,
+                bidHistory
+            };
+        });
+    }, [rawUsers, bids, auctions, products, collections, collectionProducts]);
 
     const functions = getFunctions();
 
@@ -125,7 +218,6 @@ export const useAdminUsers = () => {
 
     return {
         users,
-        setUsers,
         addUser,
         updateUser,
         deleteUser,

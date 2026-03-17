@@ -16,7 +16,6 @@ export interface AdminUsersFormData {
 
 export interface UseAdminUsersContextValueProps {
     users: User[];
-    setUsers: Dispatch<SetStateAction<User[]>>;
     addUser: (user: User) => Promise<void>;
     updateUser: (user: User) => Promise<void>;
     deleteUser: (id: string) => Promise<void>;
@@ -28,7 +27,7 @@ export interface UseAdminUsersContextValueProps {
 }
 
 export const useAdminUsersContextValue = ({
-    users, setUsers, addUser, updateUser, deleteUser, changeUserStatus, changeUserRole, getAdminCount, dialogState, t
+    users, addUser, updateUser, deleteUser, changeUserStatus, changeUserRole, getAdminCount, dialogState, t
 }: UseAdminUsersContextValueProps) => {
 
     const [isMutating, setIsMutating] = useState(false);

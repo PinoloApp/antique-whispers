@@ -161,6 +161,8 @@ const Index = () => {
     if (selectedSubcategory) {
       result = result.filter((c) => c.subcategory === selectedSubcategory);
     }
+    // Price filter
+    result = result.filter((c) => c.currentBid >= priceRange[0] && c.currentBid <= priceRange[1]);
     // Search filter
     if (searchQuery.trim() && searchQuery.length >= 2) {
       const query = searchQuery.toLowerCase().trim();
@@ -174,7 +176,7 @@ const Index = () => {
       });
     }
     return result;
-  }, [relevantCollections, selectedCategory, selectedSubcategory, searchQuery]);
+  }, [relevantCollections, selectedCategory, selectedSubcategory, searchQuery, priceRange]);
 
   // Product IDs that belong to collections (should be excluded from individual lots)
   const collectionProductIds = useMemo(() => {
@@ -207,13 +209,19 @@ const Index = () => {
 
   // Calculate min and max prices for the slider
   const priceStats = useMemo(() => {
-    if (relevantProducts.length === 0) return { min: 0, max: 100000 };
-    const prices = relevantProducts.map((p) => p.currentBid);
+    const allRelevantItems = [...relevantProducts, ...relevantCollections];
+    if (allRelevantItems.length === 0) return { min: 0, max: 100000 };
+    const prices = allRelevantItems.map((p) => p.currentBid);
     return {
       min: Math.floor(Math.min(...prices)),
       max: Math.ceil(Math.max(...prices)),
     };
-  }, [relevantProducts]);
+  }, [relevantProducts, relevantCollections]);
+
+  // Sync price range with stats when categories change
+  useEffect(() => {
+    setPriceRange([priceStats.min, priceStats.max]);
+  }, [priceStats.min, priceStats.max]);
 
   // Filter categories to only show those with products or collections in relevant auctions
   const displayCategories = useMemo(() => {
