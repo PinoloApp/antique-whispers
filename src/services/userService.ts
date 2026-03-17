@@ -84,6 +84,15 @@ export class UserService {
     }
 
     /**
+     * Get all user IDs from the users collection
+     */
+    static async getAllUserIds(): Promise<string[]> {
+        const q = query(collection(db, this.collectionName));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.id);
+    }
+
+    /**
      * Get a user's data by ID
      */
     static async getUserById(userId: string) {

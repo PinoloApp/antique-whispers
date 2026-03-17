@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useData } from "@/contexts/DataContext";
 import { useCategories } from "@/hooks/useCategories";
@@ -7,7 +7,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import BidForm from "@/components/BidForm";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Heart, ArrowLeft, CircleDot, Bookmark, Hash, Check } from "lucide-react";
+import { Heart, ArrowLeft, CircleDot, Bookmark, Hash, Check, Gavel } from "lucide-react";
 import AuthDialog from "@/components/AuthDialog";
 import { useAuth } from "@/contexts/authContexts";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,9 @@ const lotStateLabels = {
 };
 
 const LotDetail = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const auctionIdFromUrl = searchParams.get("auctionId");
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const { products, auctions } = useData();
@@ -48,7 +50,6 @@ const LotDetail = () => {
   const { userLoggedIn } = useAuth();
   const { toast } = useToast();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [isFavoriteAction, setIsFavoriteAction] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -64,7 +65,7 @@ const LotDetail = () => {
 
   const handleFavoriteClick = () => {
     setShowConfirm(true);
-    
+
   };
 
   const handleConfirmFavorite = () => {
@@ -110,6 +111,16 @@ const LotDetail = () => {
   const subcategory = category?.subcategories.find((s) => s.id === product.subcategory);
   const subcategoryName = subcategory ? subcategory.title[language as 'en' | 'sr'] || subcategory.title.sr : null;
 
+  // Determine if we should show sold price from auction results
+  const targetAuctionId = auctionIdFromUrl ? Number(auctionIdFromUrl) : auction?.id;
+  const targetAuction = auctions.find(a => a.id === targetAuctionId);
+  const soldPriceFromResults = targetAuction?.results?.[product.id.toString()];
+  const historicalStartingPrice = targetAuction?.initialPrices?.[product.id.toString()] ?? product.startingPrice;
+  const isAuctionCompleted = targetAuction?.status === "completed";
+
+  const showSoldPrice = product.status === "sold" || soldPriceFromResults !== undefined;
+  const finalSoldPrice = soldPriceFromResults !== undefined ? soldPriceFromResults : product.currentBid;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -117,31 +128,31 @@ const LotDetail = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <div className="flex items-center gap-4 mb-6 flex-wrap">
-          <Button variant="ghost" onClick={() => navigate("/")} className="px-3">
+          <Button variant="ghost" onClick={() => navigate(-1)} className="px-3">
             <ArrowLeft className="w-4 h-4 mr-2" />
             {language === "en" ? "Back" : "Nazad"}
           </Button>
 
           <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-            <button onClick={() => navigate("/")} className="hover:text-foreground transition-colors">
+            <Link to="/" className="hover:text-foreground transition-colors">
               {language === "en" ? "Home" : "Početna"}
-            </button>
+            </Link>
             <span>/</span>
-            <button
-              onClick={() => navigate(`/?category=${product.category}`)}
+            <Link
+              to={`/?category=${product.category}`}
               className="hover:text-foreground transition-colors"
             >
               {categoryName}
-            </button>
+            </Link>
             {subcategoryName && (
               <>
                 <span>/</span>
-                <button
-                  onClick={() => navigate(`/?category=${product.category}&subcategory=${product.subcategory}`)}
+                <Link
+                  to={`/?category=${product.category}&subcategory=${product.subcategory}`}
                   className="hover:text-foreground transition-colors"
                 >
                   {subcategoryName}
-                </button>
+                </Link>
               </>
             )}
             <span>/</span>
@@ -267,15 +278,30 @@ const LotDetail = () => {
               )}
             </div>
 
-            {/* Current Bid */}
+            {/* Current Bid / Sold Price Section */}
             <div className="bg-muted/50 rounded-lg p-6">
-              <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">{t("products.currentBid")}</p>
-              <p className="text-4xl font-serif font-bold text-gold">€{(product.currentBid || 0).toLocaleString()}</p>
-              {hasBids && (
-                <div className="mt-3 flex items-center gap-1.5 text-green-600 font-medium text-sm">
-                  <Check className="w-4 h-4" />
-                  {language === "en" ? "Starting price reached" : "Početna cena ostvarena"}
+              {showSoldPrice ? (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">{t("products.startingBid")}</p>
+                    <p className="text-xl font-serif font-medium text-foreground">€{(historicalStartingPrice || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="pt-4 border-t border-destructive/20 text-destructive">
+                    <p className="text-sm uppercase tracking-wider mb-1 font-bold">{t("products.soldFor")}</p>
+                    <p className="text-4xl font-serif font-bold">€{(finalSoldPrice || 0).toLocaleString()}</p>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">{t("products.currentBid")}</p>
+                  <p className="text-4xl font-serif font-bold text-gold">€{Math.max(product.currentBid || 0, historicalStartingPrice || 0).toLocaleString()}</p>
+                  {hasBids && (
+                    <div className="mt-3 flex items-center gap-1.5 text-green-600 font-medium text-sm">
+                      <Check className="w-4 h-4" />
+                      {language === "en" ? "Starting price reached" : "Početna cena ostvarena"}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

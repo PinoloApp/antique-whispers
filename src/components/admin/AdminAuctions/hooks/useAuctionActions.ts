@@ -205,9 +205,23 @@ export const useAuctionActions = ({
                     for (const item of newItems) {
                         const lotString = nextLotNumber.toString();
                         if (item.type === 'product') {
-                            updateProduct(item.id, { auctionId: pendingAuctionData.id, status: "on_auction", lot: lotString });
+                            const prod = products.find(p => p.id === item.id);
+                            updateProduct(item.id, { 
+                                auctionId: pendingAuctionData.id, 
+                                status: "on_auction", 
+                                lot: lotString,
+                                currentBid: prod?.startingPrice || 0,
+                                hasBids: false
+                            });
                         } else if (item.type === 'collection') {
-                            updateCollection(item.id, { status: "on_auction", auctionId: pendingAuctionData.id, lotNumber: lotString });
+                            const coll = collections.find(c => c.id === item.id);
+                            updateCollection(item.id, { 
+                                status: "on_auction", 
+                                auctionId: pendingAuctionData.id, 
+                                lotNumber: lotString,
+                                currentBid: coll?.startingPrice || 0,
+                                hasBids: false
+                            });
                             if (item.productIds && Array.isArray(item.productIds)) {
                                 for (let i = 0; i < item.productIds.length; i++) {
                                     await CollectionProductService.update(item.productIds[i], {
@@ -274,9 +288,23 @@ export const useAuctionActions = ({
                 for (const item of itemsToAssign) {
                     const lotString = currentLotNumber.toString();
                     if (item.type === 'product') {
-                        updateProduct(item.id, { auctionId: pendingAuctionData.id, status: "on_auction", lot: lotString });
+                        const prod = products.find(p => p.id === item.id);
+                        updateProduct(item.id, { 
+                            auctionId: pendingAuctionData.id, 
+                            status: "on_auction", 
+                            lot: lotString,
+                            currentBid: prod?.startingPrice || 0,
+                            hasBids: false
+                        });
                     } else if (item.type === 'collection') {
-                        updateCollection(item.id, { status: "on_auction", auctionId: pendingAuctionData.id, lotNumber: lotString });
+                        const coll = collections.find(c => c.id === item.id);
+                        updateCollection(item.id, { 
+                            status: "on_auction", 
+                            auctionId: pendingAuctionData.id, 
+                            lotNumber: lotString,
+                            currentBid: coll?.startingPrice || 0,
+                            hasBids: false
+                        });
                         if (item.productIds && Array.isArray(item.productIds)) {
                             for (let i = 0; i < item.productIds.length; i++) {
                                 await CollectionProductService.update(item.productIds[i], {
@@ -466,36 +494,22 @@ export const useAuctionActions = ({
                     // Cancel the completion task since we're closing manually
                     await cancelAuctionTasks(auctionToClose, false, true);
 
-                    const wonDate = new Date().toISOString().split('T')[0];
-                    const deadlineDate = new Date();
-                    deadlineDate.setDate(deadlineDate.getDate() + 7);
-                    const paymentDeadline = deadlineDate.toISOString().split('T')[0];
+                    const results: Record<string, number> = {};
+                    const initialPrices: Record<string, number> = {};
 
                     // Process Collections
                     if (auction.collectionIds) {
                         for (const colId of auction.collectionIds) {
                             const collection = collections.find((c) => c.id === colId);
                             if (collection) {
+                                initialPrices[colId.toString()] = collection.startingPrice;
                                 const colBids = getProductBids(colId, auction.id);
-                                const winningBid = colBids.find(b => b.isWinning);
+                                const hasWinningBid = colBids.some(b => b.isWinning);
 
-                                if (winningBid) {
-                                    updateCollection(colId, { status: "sold" });
-                                    
-                                    // Create Payment for Collection
-                                    await PaymentService.create({
-                                        itemId: colId,
-                                        itemType: 'collection',
-                                        lotNumber: collection.lotNumber || `Coll #${colId}`,
-                                        lotName: collection.name,
-                                        auctionTitle: auction.title,
-                                        buyerName: winningBid.bidderName,
-                                        buyerEmail: winningBid.bidderEmail,
-                                        amount: winningBid.currentAmount,
-                                        status: 'pending',
-                                        wonDate,
-                                        paymentDeadline
-                                    });
+                                if (hasWinningBid) {
+                                    updateCollection(colId, { status: "sold", hasBids: true });
+                                    const latestCol = collections.find(c => c.id === colId);
+                                    if (latestCol) results[colId.toString()] = latestCol.currentBid;
                                 } else {
                                     updateCollection(colId, { status: "available", auctionId: 0 });
                                 }
@@ -507,33 +521,26 @@ export const useAuctionActions = ({
                     if (auction.lotIds) {
                         for (const lotId of auction.lotIds) {
                             const product = products.find(p => p.id === lotId);
+                            if (product) initialPrices[lotId.toString()] = product.startingPrice || 0;
+                            
                             const lotBids = getProductBids(lotId, auction.id);
-                            const winningBid = lotBids.find(b => b.isWinning);
+                            const hasWinningBid = lotBids.some(b => b.isWinning);
 
-                            if (winningBid && product) {
-                                updateProduct(lotId, { status: "sold" });
-
-                                // Create Payment for Product
-                                await PaymentService.create({
-                                    itemId: lotId,
-                                    itemType: 'product',
-                                    lotNumber: product.lot || `Lot #${lotId}`,
-                                    lotName: { en: product.name, sr: product.namesr },
-                                    auctionTitle: auction.title,
-                                    buyerName: winningBid.bidderName,
-                                    buyerEmail: winningBid.bidderEmail,
-                                    amount: winningBid.currentAmount,
-                                    status: 'pending',
-                                    wonDate,
-                                    paymentDeadline
-                                });
+                            if (hasWinningBid) {
+                                updateProduct(lotId, { status: "sold", hasBids: true });
+                                const latestProd = products.find(p => p.id === lotId);
+                                if (latestProd) results[lotId.toString()] = latestProd.currentBid;
                             } else {
                                 updateProduct(lotId, { status: "available", auctionId: 0 });
                             }
                         }
                     }
 
-                    await AuctionService.update(auctionToClose, { status: "completed" });
+                    await AuctionService.update(auctionToClose, { 
+                        status: "completed",
+                        results: results,
+                        initialPrices: initialPrices
+                    });
                     toast({
                         title: language === "en" ? "Auction Closed" : "Aukcija Zatvorena",
                         description: language === "en" ? "The auction has been closed and winner payments have been generated." : "Aukcija je zatvorena i plaćanja za pobednike su generisana.",

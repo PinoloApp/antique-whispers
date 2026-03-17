@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams, useNavigationType } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HeroSection from "@/components/HeroSection";
@@ -25,19 +25,25 @@ const ITEMS_PER_PAGE_OPTIONS = [8, 12, 24, 48];
 const Index = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navType = useNavigationType();
   const { t, language } = useLanguage();
-  const { products, collections } = useData();
+  const { products, collections, selectedAuctionId, setSelectedAuctionId } = useData();
   const { auctions, loading } = useAuctions();
   const { categories } = useCategories();
+  const [isRestoringScroll, setIsRestoringScroll] = useState(() => {
+    return navType === "POP" && sessionStorage.getItem('indexScrollPos') !== null;
+  });
 
   useEffect(() => {
+    if (navType === "POP") return;
+
     if (location.hash) {
       const el = document.getElementById(location.hash.slice(1));
       if (el) {
-        setTimeout(() => el.scrollIntoView({ behavior: "smooth" }), 100);
+        setTimeout(() => el.scrollIntoView({ behavior: "instant" }), 0);
       }
     }
-  }, [location.hash]);
+  }, [location.hash, navType]);
 
   const categoryFromUrl = searchParams.get("category");
   const subcategoryFromUrl = searchParams.get("subcategory");
@@ -49,12 +55,40 @@ const Index = () => {
     if (categoryFromUrl) {
       setSelectedCategory(categoryFromUrl);
       setSelectedSubcategory(subcategoryFromUrl || null);
-      setSearchParams({}, { replace: true });
-      setTimeout(() => {
-        document.getElementById("categories")?.scrollIntoView({ behavior: "smooth" });
-      }, 200);
+
+      // Only auto-scroll on new navigations
+      if (navType !== "POP") {
+        setTimeout(() => {
+          document.getElementById("categories")?.scrollIntoView({ behavior: "instant" });
+        }, 0);
+      }
     }
-  }, [categoryFromUrl, subcategoryFromUrl]);
+  }, [categoryFromUrl, subcategoryFromUrl, navType]);
+  // Restore scroll position when returning from lot/collection detail
+  useEffect(() => {
+    if (navType === "POP" && !loading && auctions.length > 0) {
+      const savedPos = sessionStorage.getItem('indexScrollPos');
+      if (savedPos) {
+        // Wait a bit for the items to render and layout to settle
+        setTimeout(() => {
+          window.scrollTo({
+            top: parseInt(savedPos),
+            behavior: 'instant'
+          });
+          sessionStorage.removeItem('indexScrollPos');
+          // Important: give a tiny bit of extra time for browser to paint the new position
+          setTimeout(() => {
+            setIsRestoringScroll(false);
+          }, 50);
+        }, 150);
+      } else {
+        setIsRestoringScroll(false);
+      }
+    } else if (navType !== "POP") {
+      setIsRestoringScroll(false);
+    }
+  }, [navType, loading, auctions.length]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("lot-asc");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
@@ -69,29 +103,41 @@ const Index = () => {
     });
   }, [auctions]);
 
-  const [selectedAuctionId, setSelectedAuctionId] = useState<number | null>(null);
-
-  // Auto-select first auction when data loads
+  // Auto-select first auction when data loads if none selected or reset requested
   useEffect(() => {
-    if (sortedAuctions.length > 0 && selectedAuctionId === null) {
-      setSelectedAuctionId(sortedAuctions[0].id);
-    }
-  }, [sortedAuctions]);
+    const resetRequested = searchParams.get("resetAuction") === "true";
 
-  // Get active auctions (upcoming)
+    if (sortedAuctions.length > 0) {
+      if (selectedAuctionId === null || resetRequested) {
+        const firstId = sortedAuctions[0].id;
+        setSelectedAuctionId(firstId);
+
+        if (resetRequested) {
+          const params = new URLSearchParams(searchParams);
+          params.delete("resetAuction");
+          setSearchParams(params, { replace: true });
+        }
+      }
+    }
+  }, [sortedAuctions.length, selectedAuctionId, searchParams, setSelectedAuctionId, setSearchParams]);
+
+  // Get active auctions (active or upcoming)
   const activeAuctions = useMemo(() => {
-    return auctions.filter((a) => a.status === "upcoming");
+    return auctions.filter((a) => a.status === "active" || a.status === "upcoming");
   }, [auctions]);
 
-  // Get relevant collection IDs and lot IDs based on selected auction
+  // Get relevant collection IDs and lot IDs based on selected auction or active auctions
   const relevantCollectionIds = useMemo(() => {
     const ids = new Set<number>();
+
+    // If an auction is explicitly selected, use only its collections
     if (selectedAuctionId) {
       const selectedAuction = auctions.find((a) => a.id === selectedAuctionId);
       if (selectedAuction) {
         selectedAuction.collectionIds?.forEach((cid) => ids.add(cid));
       }
     } else {
+      // If no auction is selected, show collections from all active/upcoming auctions
       activeAuctions.forEach((auction) => {
         auction.collectionIds?.forEach((cid) => ids.add(cid));
       });
@@ -305,12 +351,38 @@ const Index = () => {
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
     setSelectedSubcategory(null);
+
+    // Update URL, preserving other params
+    const params = new URLSearchParams(window.location.search);
+    params.set("category", categoryId);
+    params.delete("subcategory");
+    setSearchParams(params);
   };
 
   const handleAuctionSelect = (auctionId: number | null) => {
     setSelectedAuctionId(auctionId);
     setSelectedCategory("all");
     setSelectedSubcategory(null);
+
+    // Update URL - remove category filters but NOT auction (auction is now in Context)
+    const params = new URLSearchParams(window.location.search);
+    params.delete("category");
+    params.delete("subcategory");
+    params.delete("auction"); // Ensure we don't have it in URL
+    setSearchParams(params);
+  };
+
+  const handleSubcategorySelect = (subId: string | null) => {
+    setSelectedSubcategory(subId);
+
+    // Update URL, preserving other params
+    const params = new URLSearchParams(window.location.search);
+    if (subId) {
+      params.set("subcategory", subId);
+    } else {
+      params.delete("subcategory");
+    }
+    setSearchParams(params);
   };
 
   const handlePageChange = (page: number) => {
@@ -376,11 +448,11 @@ const Index = () => {
               {currentSubcategories.length > 0 && (
                 <div className="mb-8 animate-fade-in">
                   <div className="flex flex-wrap gap-2 justify-center">
-                    <button onClick={() => setSelectedSubcategory(null)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${!selectedSubcategory ? "bg-secondary text-secondary-foreground shadow-soft" : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
+                    <button onClick={() => handleSubcategorySelect(null)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${!selectedSubcategory ? "bg-secondary text-secondary-foreground shadow-soft" : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
                       {language === "en" ? "All" : "Sve"}
                     </button>
                     {currentSubcategories.map((sub) => (
-                      <button key={sub.id} onClick={() => setSelectedSubcategory(sub.id)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${selectedSubcategory === sub.id ? "bg-secondary text-secondary-foreground shadow-soft" : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
+                      <button key={sub.id} onClick={() => handleSubcategorySelect(sub.id)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${selectedSubcategory === sub.id ? "bg-secondary text-secondary-foreground shadow-soft" : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
                         {sub.title?.[language as "en" | "sr"] || sub.title?.sr || sub.key}
                       </button>
                     ))}
@@ -400,15 +472,15 @@ const Index = () => {
                   {(() => {
                     const prods = sortedItems.filter(i => !('lotNumber' in i)).length;
                     const cols = sortedItems.filter(i => 'lotNumber' in i).length;
-                    
+
                     const lotLabel = language === "en"
                       ? `${prods} ${prods === 1 ? "item" : "items"}`
                       : `${prods} ${prods === 1 ? "lot" : prods % 10 >= 2 && prods % 10 <= 4 && (prods % 100 < 10 || prods % 100 >= 20) ? "lota" : "lotova"}`;
-                    
+
                     const colLabel = language === "en"
                       ? `${cols} ${cols === 1 ? "collection" : "collections"}`
                       : `${cols} ${cols === 1 ? "kolekcija" : cols % 10 >= 2 && cols % 10 <= 4 && (cols % 100 < 10 || cols % 100 >= 20) ? "kolekcije" : "kolekcija"}`;
-                      
+
                     return cols > 0 ? <span>{lotLabel} + {colLabel}</span> : <span>{lotLabel}</span>;
                   })()}
                 </p>
@@ -463,11 +535,11 @@ const Index = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
                 {paginatedItems.map((item, index) => (
-                  <div key={`${'lotNumber' in item ? 'col' : 'prod'}-${item.id}`} className="animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
+                  <div key={`${'lotNumber' in item ? 'col' : 'prod'}-${item.id}`} className="animate-fade-in h-full" style={{ animationDelay: `${index * 0.05}s` }}>
                     {'lotNumber' in item ? (
-                      <CollectionCard collection={item as any} />
+                      <CollectionCard collection={item as any} auctionId={selectedAuctionId} />
                     ) : (
-                      <ProductCard product={item as any} searchQuery={searchQuery} />
+                      <ProductCard product={item as any} searchQuery={searchQuery} auctionId={selectedAuctionId} />
                     )}
                   </div>
                 ))}
@@ -523,6 +595,16 @@ const Index = () => {
       </main>
 
       <Footer />
+
+      {/* Scroll Restoration Loading Overlay */}
+      {isRestoringScroll && (
+        <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center animate-fade-in">
+          <div className="w-12 h-12 border-4 border-gold border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-muted-foreground font-serif italic">
+            {language === "en" ? "Restoring your position..." : "Vraćanje na poziciju..."}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

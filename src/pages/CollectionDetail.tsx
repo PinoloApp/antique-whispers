@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useData } from "@/contexts/DataContext";
 import { useCategories } from "@/hooks/useCategories";
@@ -7,7 +7,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import BidForm from "@/components/BidForm";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Heart, ArrowLeft, Layers, Info, Package, Check, Hash } from "lucide-react";
+import { Heart, ArrowLeft, Layers, Info, Package, Check, Hash, ChevronLeft, ChevronRight, Gavel, LayoutGrid, List, Tag, Calendar, Clock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -36,6 +36,8 @@ import {
 
 const CollectionDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const auctionIdFromUrl = searchParams.get("auctionId");
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const { collections, collectionProducts: products, auctions } = useData();
@@ -138,6 +140,15 @@ const CollectionDetail = () => {
   const subcategory = category?.subcategories.find((s) => s.id === collection.subcategory);
   const subcategoryName = subcategory ? subcategory.title[language as 'en' | 'sr'] || subcategory.title.sr : null;
 
+  const isAuctionCompleted = auction?.status === 'completed';
+  const targetAuctionId = auctionIdFromUrl ? Number(auctionIdFromUrl) : auction?.id;
+  const targetAuction = auctions.find(a => a.id === targetAuctionId);
+  const soldPriceFromResults = targetAuction?.results?.[collection.id.toString()];
+  const historicalStartingPrice = targetAuction?.initialPrices?.[collection.id.toString()] ?? collection.startingPrice;
+
+  const showSoldPrice = (collection.status === 'sold' || soldPriceFromResults !== undefined);
+  const finalSoldPrice = soldPriceFromResults !== undefined ? soldPriceFromResults : collection.currentBid;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -145,34 +156,34 @@ const CollectionDetail = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Back + Breadcrumb */}
         <div className="flex items-center gap-4 mb-6 flex-wrap">
-          <Button variant="ghost" onClick={() => navigate("/")} className="px-3">
+          <Button variant="ghost" onClick={() => navigate(-1)} className="px-3">
             <ArrowLeft className="w-4 h-4 mr-2" />
             {language === "en" ? "Back" : "Nazad"}
           </Button>
           <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-            <button onClick={() => navigate("/")} className="hover:text-foreground transition-colors">
+            <Link to="/" className="hover:text-foreground transition-colors">
               {language === "en" ? "Home" : "Početna"}
-            </button>
+            </Link>
             <span>/</span>
             {categoryName && (
               <>
-                <button
-                  onClick={() => navigate(`/?category=${collection.category}`)}
+                <Link
+                  to={`/?category=${collection.category}`}
                   className="hover:text-foreground transition-colors"
                 >
                   {categoryName}
-                </button>
+                </Link>
                 <span>/</span>
               </>
             )}
             {subcategoryName && (
               <>
-                <button
-                  onClick={() => navigate(`/?category=${collection.category}&subcategory=${collection.subcategory}`)}
+                <Link
+                  to={`/?category=${collection.category}&subcategory=${collection.subcategory}`}
                   className="hover:text-foreground transition-colors"
                 >
                   {subcategoryName}
-                </button>
+                </Link>
                 <span>/</span>
               </>
             )}
@@ -316,19 +327,38 @@ const CollectionDetail = () => {
               </AlertDescription>
             </Alert>
 
-            {/* Current Bid */}
+            {/* Current Bid / Sold Price Section */}
             <div className="bg-muted/50 rounded-lg p-6">
-              <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">
-                {language === "en" ? "Current Bid" : "Trenutna ponuda"}
-              </p>
-              <p className="text-4xl font-serif font-bold text-gold">
-                €{(collection.currentBid || 0).toLocaleString()}
-              </p>
-              {hasBids && (
-                <div className="mt-3 flex items-center gap-1.5 text-green-600 font-medium text-sm">
-                  <Check className="w-4 h-4" />
-                  {language === "en" ? "Starting price reached" : "Početna cena ostvarena"}
+              {showSoldPrice ? (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">
+                      {language === "en" ? "Starting Price" : "Početna cena"}
+                    </p>
+                    <p className="text-xl font-serif font-medium text-foreground">€{(historicalStartingPrice || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="pt-4 border-t border-destructive/20 text-destructive">
+                    <p className="text-sm uppercase tracking-wider mb-1 font-bold">
+                      {language === "en" ? "Sold For" : "Prodato za"}
+                    </p>
+                    <p className="text-4xl font-serif font-bold">€{(finalSoldPrice || 0).toLocaleString()}</p>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">
+                    {language === "en" ? "Current Bid" : "Trenutna ponuda"}
+                  </p>
+                  <p className="text-4xl font-serif font-bold text-gold">
+                    €{Math.max(collection.currentBid || 0, historicalStartingPrice || 0).toLocaleString()}
+                  </p>
+                  {hasBids && (
+                    <div className="mt-3 flex items-center gap-1.5 text-green-600 font-medium text-sm">
+                      <Check className="w-4 h-4" />
+                      {language === "en" ? "Starting price reached" : "Početna cena ostvarena"}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

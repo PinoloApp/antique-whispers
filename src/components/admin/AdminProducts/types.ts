@@ -6,6 +6,7 @@ export interface ProductFormData {
     descriptionEn: string;
     descriptionSr: string;
     lot: string;
+    startingPrice: string;
     currentBid: string;
     category: string;
     subcategory: string;

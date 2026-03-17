@@ -58,6 +58,7 @@ const translations: Translations = {
   "products.lot": { en: "Lot", sr: "Lot" },
   "products.currentBid": { en: "Current Price", sr: "Trenutna Cena" },
   "products.startingBid": { en: "Starting Price", sr: "Početna Cena" },
+  "products.soldFor": { en: "Sold for", sr: "Prodato za" },
   "products.placeBid": { en: "Place Bid", sr: "Licitiraj" },
 
   // Search

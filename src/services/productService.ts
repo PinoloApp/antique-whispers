@@ -12,6 +12,7 @@ import {
     where,
     getCountFromServer,
     DocumentSnapshot,
+    getDoc,
     onSnapshot,
     Unsubscribe,
     writeBatch,
@@ -141,6 +142,22 @@ export const ProductService = {
             } as any);
         });
         return products;
+    },
+
+    /**
+     * Get a product by ID
+     */
+    async getById(id: number | string): Promise<Product | null> {
+        const docRef = doc(db, COLLECTION_NAME, id.toString());
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return {
+                ...data,
+                id: Number(docSnap.id) || docSnap.id,
+            } as any;
+        }
+        return null;
     },
 
     /**

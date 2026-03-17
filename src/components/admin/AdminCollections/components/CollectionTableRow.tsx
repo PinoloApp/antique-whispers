@@ -120,7 +120,7 @@ export const CollectionTableRow = memo(
                             </SelectContent>
                         </Select>
                     </td>
-                    <td className="px-6 py-4">€{collection.startingPrice.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-foreground font-medium">€{collection.startingPrice.toLocaleString()}</td>
                     <td className="px-6 py-4">
                         <Badge variant="outline">
                             <Package className="w-3 h-3 mr-1" />

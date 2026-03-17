@@ -49,7 +49,7 @@ const Admin = () => {
   const SidebarContent = () => (
     <>
       <div className="p-4 md:p-6 border-b border-border">
-        <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+        <Link to="/?resetAuction=true" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm">{language === "en" ? "Back to Site" : "Nazad na Sajt"}</span>
         </Link>

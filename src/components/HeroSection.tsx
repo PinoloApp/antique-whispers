@@ -49,7 +49,7 @@ const statusConfig = {
     accentClass: "text-muted-foreground",
     gradientClass: "from-muted/20 to-background",
     showCountdown: false,
-    ctaEnabled: false,
+    ctaEnabled: true,
   },
   paused: {
     icon: Pause,

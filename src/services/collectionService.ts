@@ -108,6 +108,24 @@ export const CollectionService = {
     },
 
     /**
+     * Get a collection by ID
+     */
+    async getById(id: number | string): Promise<Collection | null> {
+        const docRef = doc(db, COLLECTION_NAME, id.toString());
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return {
+                ...data,
+                id: Number(docSnap.id) || docSnap.id,
+                productIds: (data.productIds || []).map(Number),
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
+            } as any;
+        }
+        return null;
+    },
+
+    /**
      * Add a new collection to Firestore
      */
     async create(customId: number, collectionObj: Omit<Collection, "id">): Promise<void> {

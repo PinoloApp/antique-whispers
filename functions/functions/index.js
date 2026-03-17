@@ -1,6 +1,6 @@
 const { setGlobalOptions } = require("firebase-functions");
 const { onCall, HttpsError, onRequest } = require("firebase-functions/v2/https");
-const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onDocumentUpdated, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const { CloudTasksClient } = require("@google-cloud/tasks");
 
@@ -247,7 +247,43 @@ exports.activateAuction = onRequest(async (req, res) => {
         console.log(`Auction ${auctionId} activated successfully.`);
         res.status(200).json({ success: true });
     } catch (error) {
-        console.error("Error activating auction:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * checkPaymentDeadline — HTTP endpoint triggered by Cloud Tasks after 5 days.
+ * If payment is still "pending", updates it to "past_due".
+ */
+exports.checkPaymentDeadline = onRequest(async (req, res) => {
+    try {
+        const { paymentId } = req.body;
+        if (!paymentId) {
+            res.status(400).json({ error: "Missing paymentId" });
+            return;
+        }
+
+        const db = admin.firestore();
+        const paymentRef = db.collection("payments").doc(paymentId);
+        const paymentSnap = await paymentRef.get();
+
+        if (!paymentSnap.exists) {
+            console.log(`Payment ${paymentId} not found, skipping deadline check.`);
+            res.status(200).json({ skipped: true, reason: "Payment not found" });
+            return;
+        }
+
+        const payment = paymentSnap.data();
+        if (payment.status === "pending") {
+            await paymentRef.update({ status: "overdue" });
+            console.log(`Payment ${paymentId} updated to overdue.`);
+            res.status(200).json({ updated: true });
+        } else {
+            console.log(`Payment ${paymentId} status is ${payment.status}, skipping.`);
+            res.status(200).json({ updated: false, reason: "Already paid or handled" });
+        }
+    } catch (error) {
+        console.error("Error in checkPaymentDeadline:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -282,6 +318,9 @@ exports.completeAuction = onRequest(async (req, res) => {
             return;
         }
 
+        const results = {};
+        const initialPrices = {};
+
         // Process lots — check if they have bids (currentBid > startingPrice)
         const lotIds = (auction.lotIds || []).map(Number);
         for (const lotId of lotIds) {
@@ -289,9 +328,11 @@ exports.completeAuction = onRequest(async (req, res) => {
             const productSnap = await productRef.get();
             if (productSnap.exists) {
                 const product = productSnap.data();
+                initialPrices[lotId.toString()] = product.startingPrice || 0;
                 const hasBids = product.hasBids || product.currentBid > (product.startingPrice || 0);
                 if (hasBids) {
                     await productRef.update({ status: "sold" });
+                    results[lotId.toString()] = product.currentBid;
 
                     // Finalize bids for this lot
                     const bidsSnap = await db.collection("bids")
@@ -324,9 +365,11 @@ exports.completeAuction = onRequest(async (req, res) => {
             const colSnap = await colRef.get();
             if (colSnap.exists) {
                 const col = colSnap.data();
+                initialPrices[colId.toString()] = col.startingPrice || 0;
                 const hasBids = col.hasBids || col.currentBid > (col.startingPrice || 0);
                 if (hasBids) {
                     await colRef.update({ status: "sold" });
+                    results[colId.toString()] = col.currentBid;
 
                     // Finalize bids for this collection
                     const bidsSnap = await db.collection("bids")
@@ -352,12 +395,295 @@ exports.completeAuction = onRequest(async (req, res) => {
             }
         }
 
-        await auctionRef.update({ status: "completed" });
+        await auctionRef.update({ 
+            status: "completed",
+            results: results,
+            initialPrices: initialPrices
+        });
         console.log(`Auction ${auctionId} completed successfully. Processed ${lotIds.length} lots, ${collectionIds.length} collections.`);
         res.status(200).json({ success: true });
     } catch (error) {
         console.error("Error completing auction:", error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * onAuctionUpdate — Firestore trigger to notify all users when an auction status changes.
+ */
+exports.onAuctionUpdate = onDocumentUpdated("auctions/{auctionId}", async (event) => {
+    const newValue = event.data.after.data();
+    const previousValue = event.data.before.data();
+    const auctionId = event.params.auctionId;
+
+    if (!newValue || !previousValue) return;
+
+    let shouldNotify = false;
+    let title = "";
+    let titleEn = "";
+    let description = "";
+    let descriptionEn = "";
+
+    // Detect Activation
+    if (newValue.status === "active" && previousValue.status === "upcoming") {
+        shouldNotify = true;
+        title = `Aukcija je uživo: ${newValue.title.sr}`;
+        titleEn = `Auction is Live: ${newValue.title.en}`;
+        description = `Aukcija '${newValue.title.sr}' je upravo počela! Pridružite se i dajte svoje ponude.`;
+        descriptionEn = `Auction '${newValue.title.en}' has just started! Join in and place your bids.`;
+    }
+    // Detect Resumption
+    else if (newValue.status === "active" && previousValue.status === "paused") {
+        shouldNotify = true;
+        title = `Aukcija nastavljena: ${newValue.title.sr}`;
+        titleEn = `Auction Resumed: ${newValue.title.en}`;
+        description = `Aukcija '${newValue.title.sr}' je nastavljena! Sada možete ponovo davati ponude.`;
+        descriptionEn = `Auction '${newValue.title.en}' has been resumed! You can now place bids again.`;
+    }
+    // Detect Cancellation
+    else if (newValue.status === "cancelled" && previousValue.status !== "cancelled") {
+        shouldNotify = true;
+        title = `Aukcija otkazana: ${newValue.title.sr}`;
+        titleEn = `Auction Cancelled: ${newValue.title.en}`;
+        description = `Aukcija '${newValue.title.sr}' je otkazana.`;
+        descriptionEn = `Auction '${newValue.title.en}' has been cancelled.`;
+    }
+    // Detect Completion (Global Phase)
+    else if (newValue.status === "completed" && previousValue.status !== "completed") {
+        shouldNotify = true;
+        title = `Aukcija završena: ${newValue.title.sr}`;
+        titleEn = `Auction Completed: ${newValue.title.en}`;
+        description = `Aukcija '${newValue.title.sr}' je uspešno završena. Hvala svima na učešću!`;
+        descriptionEn = `Auction '${newValue.title.en}' has successfully concluded. Thank you all for participating!`;
+    }
+    // Detect Pause
+    else if (newValue.status === "paused" && previousValue.status === "active") {
+        shouldNotify = true;
+        title = `Aukcija pauzirana: ${newValue.title.sr}`;
+        titleEn = `Auction Paused: ${newValue.title.en}`;
+        description = `Aukcija '${newValue.title.sr}' je privremeno pauzirana. Obavestićemo vas kada se nastavi.`;
+        descriptionEn = `Auction '${newValue.title.en}' has been temporarily paused. We will notify you when it resumes.`;
+    }
+
+    if (shouldNotify) {
+        console.log(`Auction ${auctionId} status changed to ${newValue.status}. Sending notifications to all users.`);
+        const db = admin.firestore();
+
+        try {
+            // 1. Get all user IDs
+            const usersSnap = await db.collection("users").select().get();
+            const userIds = usersSnap.docs.map(doc => doc.id);
+
+            if (userIds.length === 0) return;
+
+            // 2. Send notifications in batches of 500
+            const BATCH_SIZE = 500;
+            for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+                const batch = db.batch();
+                const chunk = userIds.slice(i, i + BATCH_SIZE);
+
+                chunk.forEach(userId => {
+                    const notifRef = db.collection("notifications").doc();
+                    batch.set(notifRef, {
+                        userId,
+                        type: "auction",
+                        title,
+                        titleEn,
+                        description,
+                        descriptionEn,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        read: false
+                    });
+                });
+
+                await batch.commit();
+            }
+            console.log(`Successfully sent ${newValue.status} notifications for auction ${auctionId} to ${userIds.length} users.`);
+            
+            // 3. Propagate status change to all bids of this auction
+            const bidsSnap = await db.collection("bids").where("auctionId", "==", Number(auctionId)).get();
+            if (!bidsSnap.empty) {
+                const bidsBatchSize = 500;
+                for (let i = 0; i < bidsSnap.docs.length; i += bidsBatchSize) {
+                    const batch = db.batch();
+                    const bidChunk = bidsSnap.docs.slice(i, i + bidsBatchSize);
+                    bidChunk.forEach(bidDoc => {
+                        batch.update(bidDoc.ref, { auctionStatus: newValue.status });
+                    });
+                    await batch.commit();
+                }
+                console.log(`Successfully updated auctionStatus to '${newValue.status}' for ${bidsSnap.size} bids.`);
+            }
+
+            // Phase 2: Winner Specific Notifications and Payments (only for 'completed' status)
+            if (newValue.status === "completed") {
+                console.log(`Starting Phase 2: Notifying winners and generating payments for auction ${auctionId}`);
+                const winningBidsSnap = await db.collection("bids")
+                    .where("auctionId", "==", Number(auctionId))
+                    .where("isWinning", "==", true)
+                    .get();
+
+                if (!winningBidsSnap.empty) {
+                    const winnerBatch = db.batch();
+                    const now = new Date();
+                    const wonDate = now.toISOString().split('T')[0];
+                    const deadline = new Date();
+                    deadline.setDate(deadline.getDate() + 5);
+                    const paymentDeadline = deadline.toISOString().split('T')[0];
+
+                    for (const bidDoc of winningBidsSnap.docs) {
+                        const bid = bidDoc.data();
+                        const { productId, userId, currentAmount } = bid;
+
+                        let itemName = "Lot";
+                        let itemNameEn = "Lot";
+                        let lotId = "";
+                        let itemType = 'product';
+
+                        const prodSnap = await db.collection("products").doc(productId.toString()).get();
+                        if (prodSnap.exists) {
+                            const pData = prodSnap.data();
+                            itemName = pData.namesr || pData.name;
+                            itemNameEn = pData.name;
+                            lotId = pData.lot || pData.mark || "";
+                            itemType = 'product';
+                        } else {
+                            const colSnap = await db.collection("collections").doc(productId.toString()).get();
+                            if (colSnap.exists) {
+                                const cData = colSnap.data();
+                                itemName = cData.name?.sr || cData.name;
+                                itemNameEn = cData.name?.en || cData.name;
+                                lotId = cData.lot || cData.mark || "";
+                                itemType = 'collection';
+                            }
+                        }
+
+                        const lotDisplay = lotId ? ` (Lot ${lotId})` : "";
+
+                        // 1. Create Notification
+                        const winnerNotifRef = db.collection("notifications").doc();
+                        winnerBatch.set(winnerNotifRef, {
+                            userId,
+                            type: "win",
+                            title: "Čestitamo! Osvojili ste lot",
+                            titleEn: "Congratulations! You won a lot",
+                            description: `Pobedili ste na aukciji za lot: ${itemName}${lotDisplay}. Iznos: €${currentAmount.toLocaleString()}.\nInformacije o plaćanju možete pronaći na vašem profilu u sekciji 'Plaćanje'.`,
+                            descriptionEn: `You won the bid for lot: ${itemNameEn}${lotDisplay}. Amount: €${currentAmount.toLocaleString()}.\nPayment details can be found in the 'Payment' section in your profile.`,
+                            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                            read: false,
+                            productId: productId,
+                            auctionId: Number(auctionId)
+                        });
+
+                        // 2. Create Payment
+                        const paymentRef = db.collection("payments").doc();
+                        winnerBatch.set(paymentRef, {
+                            userId,
+                            itemId: productId,
+                            itemType,
+                            lotNumber: lotId || productId.toString(),
+                            lotName: { en: itemNameEn, sr: itemName },
+                            auctionTitle: newValue.title,
+                            buyerName: bid.bidderName,
+                            buyerEmail: bid.bidderEmail || "",
+                            amount: currentAmount,
+                            status: 'pending',
+                            wonDate,
+                            paymentDeadline,
+                            createdAt: admin.firestore.FieldValue.serverTimestamp()
+                        });
+
+                    }
+                    await winnerBatch.commit();
+                    console.log(`Successfully sent ${winningBidsSnap.size} winner notifications and generated payments for auction ${auctionId}.`);
+                }
+            }
+        } catch (error) {
+            console.error(`Error sending auction ${newValue.status} notifications:`, error);
+        }
+    }
+});
+
+/**
+ * onPaymentCreated — Triggers when any new payment document is created.
+ * Schedules a Cloud Task to verify payment status after the deadline.
+ */
+exports.onPaymentCreated = onDocumentCreated("payments/{paymentId}", async (event) => {
+    const paymentId = event.params.paymentId;
+    const payment = event.data.data();
+
+    if (!payment) return;
+
+    console.log(`New payment ${paymentId} created. Scheduling deadline check.`);
+
+    // Base the deadline on the document's creation time to preserve the exact time of day
+    const baseTime = payment.createdAt ? payment.createdAt.toDate() : new Date();
+    const deadline = new Date(baseTime.getTime() + (5 * 24 * 60 * 60 * 1000));
+    
+    // Safety: Ensure deadline is at least 1 hour in the future (relevant if createdAt was a while ago)
+    const now = new Date();
+    if (deadline.getTime() < now.getTime() + (60 * 60 * 1000)) {
+        console.log(`Calculated deadline is too soon or in the past. Defaulting to 5 days from now.`);
+        deadline.setTime(now.getTime() + (5 * 24 * 60 * 60 * 1000));
+    }
+
+    const taskId = `payment-deadline-${paymentId}`;
+    try {
+        await createScheduledTask(
+            taskId,
+            "checkPaymentDeadline",
+            { paymentId: paymentId },
+            deadline.toISOString()
+        );
+        console.log(`Successfully scheduled deadline check for payment ${paymentId} at ${deadline.toISOString()}`);
+    } catch (err) {
+        console.error(`Failed to schedule deadline check for payment ${paymentId}:`, err);
+    }
+});
+
+/**
+ * onPaymentUpdated — Triggers when a payment document is updated.
+ * Deletes the scheduled deadline task if status changes to 'paid' or 'cancelled'.
+ */
+exports.onPaymentUpdated = onDocumentUpdated("payments/{paymentId}", async (event) => {
+    const beforeData = event.data.before.data();
+    const afterData = event.data.after.data();
+
+    if (!beforeData || !afterData) return;
+
+    const oldStatus = beforeData.status;
+    const newStatus = afterData.status;
+
+    // Detect transition to overdue
+    if (oldStatus === 'pending' && newStatus === 'overdue') {
+        const paymentId = event.params.paymentId;
+        const userId = afterData.userId;
+        const lotName = afterData.lotName;
+        const lotNumber = afterData.lotNumber;
+
+        console.log(`Payment ${paymentId} for user ${userId} is now overdue. Sending notification.`);
+
+        const db = admin.firestore();
+        const notifRef = db.collection("notifications").doc();
+        await notifRef.set({
+            userId,
+            type: "info",
+            title: "Rok za plaćanje je istekao",
+            titleEn: "Payment deadline expired",
+            description: `Rok za plaćanje za lot: ${lotName.sr} (Lot ${lotNumber}) je istekao. Status naplate je prebačen u 'Istečen rok'.`,
+            descriptionEn: `The payment deadline for lot: ${lotName.en} (Lot ${lotNumber}) has expired. Payment status has been set to 'overdue'.`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+            paymentId: paymentId
+        });
+    }
+
+    // If status changed to 'paid' or 'cancelled', delete the check task
+    if (oldStatus === 'pending' && (newStatus === 'paid' || newStatus === 'cancelled')) {
+        const paymentId = event.params.paymentId;
+        const taskId = `payment-deadline-${paymentId}`;
+        console.log(`Payment ${paymentId} status changed to ${newStatus}. Deleting task ${taskId}.`);
+        await deleteScheduledTask(taskId);
     }
 });
 
@@ -666,7 +992,10 @@ exports.placeBid = onCall(async (request) => {
                 isLiveAuction: !!isLiveAuction,
                 timestamp,
                 isWinning: false,
-                currentAmount: 0
+                currentAmount: 0,
+                auctionTitle: auctionData.title,
+                auctionEndDate: auctionData.endDate,
+                auctionStatus: auctionData.status
             };
 
             const allBids = [...existingBids, { ...newBidObj, id: newBidId, timestamp: timestamp.toDate() }];

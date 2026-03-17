@@ -215,7 +215,7 @@ export const useCollectionForm = (
             description: { en: formData.descriptionEn.trim(), sr: formData.descriptionSr.trim() },
             lotNumber: formData.lotNumber.trim(),
             startingPrice: parseFloat(formData.startingPrice),
-            currentBid: editingCollection?.currentBid || parseFloat(formData.startingPrice),
+            currentBid: editingCollection?.hasBids ? editingCollection.currentBid : parseFloat(formData.startingPrice),
             productIds: editingCollection?.productIds || [],
             image: collectionImage || undefined,
             status: editingCollection?.status || "available",

@@ -184,7 +184,11 @@ export const useCollectionActions = ({
                 amount: data.amount,
                 status: 'pending',
                 wonDate: new Date().toISOString().split('T')[0],
-                paymentDeadline: new Date().toISOString().split('T')[0],
+                paymentDeadline: (() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 5);
+                    return d.toISOString().split('T')[0];
+                })(),
             });
 
             toast({

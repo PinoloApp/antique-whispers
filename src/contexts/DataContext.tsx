@@ -46,6 +46,8 @@ export interface Auction {
   lotIds: number[];
   collectionIds: number[];
   bidSteps: BidStep[];
+  results?: Record<string, number>; // Maps ID to final sold price
+  initialPrices?: Record<string, number>; // Maps ID to starting price at the time of auction
   createdAt?: Date;
 }
 
@@ -120,6 +122,9 @@ export interface Bid {
   timestamp: Date;
   isWinning: boolean; // Whether this bid is currently winning
   isLiveAuction?: boolean; // Whether bid was placed at live auction
+  auctionTitle?: { en: string; sr: string };
+  auctionEndDate?: any;
+  auctionStatus?: string;
 }
 
 interface DataContextType {
@@ -137,6 +142,8 @@ interface DataContextType {
   addBid: (bidData: { productId: number; auctionId: number; maxAmount: number; bidderName: string; bidderEmail?: string; isLiveAuction?: boolean }) => Promise<{ success: boolean; winning: boolean; currentPrice: number }>;
   getBidStepForAmount: (auctionId: number, amount: number) => number;
   getProductBids: (productId: number, auctionId: number) => Bid[];
+  selectedAuctionId: number | null;
+  setSelectedAuctionId: (id: number | null) => void;
 }
 
 const defaultBidSteps: BidStep[] = [
@@ -159,6 +166,7 @@ import { useEffect } from "react";
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [bids, setBids] = useState<Bid[]>([]); // Bids will be populated only for admins or via manual fetch
+  const [selectedAuctionId, setSelectedAuctionId] = useState<number | null>(null);
 
   const { products } = useProducts();
   const { collectionProducts } = useCollectionProducts();
@@ -243,6 +251,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       addBid,
       getBidStepForAmount,
       getProductBids,
+      selectedAuctionId,
+      setSelectedAuctionId,
     }}>
       {children}
     </DataContext.Provider>

@@ -55,16 +55,22 @@ export class LotAssignmentService {
         const lotString = lotNumber.toString();
 
         if (itemType === 'product') {
+            const product = await ProductService.getById(itemId);
             await ProductService.update(itemId, { 
                 lot: lotString,
                 status: 'on_auction',
-                auctionId: auctionId
+                auctionId: auctionId,
+                currentBid: product?.startingPrice || 0,
+                hasBids: false
             });
         } else if (itemType === 'collection') {
+            const collectionObj = await CollectionService.getById(itemId);
             await CollectionService.update(itemId, { 
                 lotNumber: lotString,
                 status: 'on_auction',
-                auctionId: auctionId
+                auctionId: auctionId,
+                currentBid: collectionObj?.startingPrice || 0,
+                hasBids: false
             });
 
             const collections = await CollectionService.getAll();

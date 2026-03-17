@@ -176,7 +176,7 @@ export const CollectionList: React.FC<CollectionListProps> = ({
                             </div>
                             <div>
                                 <span className="text-muted-foreground">{language === "en" ? "Starting:" : "Početna:"}</span>{" "}
-                                <span className="font-medium">€{collection.startingPrice.toLocaleString()}</span>
+                                <span className="font-medium text-foreground">€{collection.startingPrice.toLocaleString()}</span>
                             </div>
                             <div>
                                 <span className="text-muted-foreground">{language === "en" ? "Category:" : "Kategorija:"}</span>{" "}

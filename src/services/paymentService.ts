@@ -10,7 +10,8 @@ import {
     onSnapshot,
     addDoc,
     Timestamp,
-    serverTimestamp
+    serverTimestamp,
+    where
 } from "firebase/firestore";
 import { Payment } from "../contexts/DataContext";
 
@@ -33,6 +34,25 @@ export class PaymentService {
     static async delete(id: string): Promise<void> {
         const docRef = doc(db, this.collectionName, id);
         await deleteDoc(docRef);
+    }
+
+    static subscribeToUser(userId: string, callback: (payments: Payment[]) => void) {
+        const q = query(
+            collection(db, this.collectionName),
+            where("userId", "==", userId),
+            orderBy("wonDate", "desc")
+        );
+
+        return onSnapshot(q, (snapshot) => {
+            const payments = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    ...data,
+                    id: doc.id,
+                } as Payment;
+            });
+            callback(payments);
+        });
     }
 
     static subscribeToAll(callback: (payments: Payment[]) => void) {

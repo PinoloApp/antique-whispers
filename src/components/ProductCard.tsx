@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { Heart, Eye, Hash, Bookmark, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product, LotState } from "@/contexts/DataContext";
+import { useData, Product, LotState } from "@/contexts/DataContext";
 import { Badge } from "@/components/ui/badge";
 import HighlightText from "@/components/HighlightText";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +24,7 @@ import {
 interface ProductCardProps {
   product: Product;
   searchQuery?: string;
+  auctionId?: number | null;
 }
 
 const lotStateLabels: Record<LotState, { en: string; sr: string }> = {
@@ -34,10 +35,11 @@ const lotStateLabels: Record<LotState, { en: string; sr: string }> = {
   restored: { en: "Restored", sr: "Restaurirano" },
 };
 
-const ProductCard = ({ product, searchQuery = "" }: ProductCardProps) => {
+const ProductCard = ({ product, searchQuery = "", auctionId: contextAuctionId }: ProductCardProps) => {
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const { toggleFavorite, isFavorite } = useFavorites();
+  const { auctions } = useData();
   const { userLoggedIn } = useAuth();
   const { toast } = useToast();
   const [isHovered, setIsHovered] = useState(false);
@@ -70,13 +72,43 @@ const ProductCard = ({ product, searchQuery = "" }: ProductCardProps) => {
     setShowConfirm(false);
   };
 
+  const effectiveAuctionId = contextAuctionId || product.auctionId;
+
   const handleCardClick = () => {
-    navigate(`/lot/${product.id}`);
+    sessionStorage.setItem('indexScrollPos', window.scrollY.toString());
+    navigate(`/lot/${product.id}${effectiveAuctionId ? `?auctionId=${effectiveAuctionId}` : ''}`);
   };
+
+  const soldPriceFromResults = useMemo(() => {
+    if (!effectiveAuctionId) return null;
+    const auction = auctions.find(a => a.id === effectiveAuctionId);
+    if (auction?.status === 'completed' && auction.results && auction.results[product.id.toString()]) {
+      return auction.results[product.id.toString()];
+    }
+    return null;
+  }, [effectiveAuctionId, auctions, product.id]);
+
+  const historicalStartingPrice = useMemo(() => {
+    if (!effectiveAuctionId) return product.startingPrice;
+    const auction = auctions.find(a => a.id === effectiveAuctionId);
+    if (auction?.initialPrices && auction.initialPrices[product.id.toString()] !== undefined) {
+      return auction.initialPrices[product.id.toString()];
+    }
+    return product.startingPrice;
+  }, [effectiveAuctionId, auctions, product.id, product.startingPrice]);
+
+  const startingPrice = historicalStartingPrice ?? product.currentBid;
+  const isAuctionCompleted = useMemo(() => {
+    if (!effectiveAuctionId) return false;
+    const auction = auctions.find(a => a.id === effectiveAuctionId);
+    return auction?.status === 'completed';
+  }, [effectiveAuctionId, auctions]);
+
+  const finalSoldPrice = soldPriceFromResults !== null ? soldPriceFromResults : product.currentBid;
 
   return (
     <div
-      className="group bg-card rounded-lg overflow-hidden shadow-soft hover:shadow-card transition-all duration-300 border border-border cursor-pointer"
+      className="group bg-card rounded-lg overflow-hidden shadow-soft hover:shadow-card transition-all duration-300 border border-border cursor-pointer h-full flex flex-col"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleCardClick}
@@ -137,8 +169,8 @@ const ProductCard = ({ product, searchQuery = "" }: ProductCardProps) => {
       </div>
 
       {/* Content */}
-      <div className="p-5 pt-3">
-        <h3 className="font-serif text-lg font-semibold text-foreground mb-2 line-clamp-2 min-h-[3.5rem]">
+      <div className="p-5 pt-3 flex-1 flex flex-col">
+        <h3 className="font-serif text-lg font-semibold text-foreground mb-2 line-clamp-2">
           <HighlightText text={displayName} highlight={searchQuery} />
         </h3>
 
@@ -146,17 +178,41 @@ const ProductCard = ({ product, searchQuery = "" }: ProductCardProps) => {
           <p className="text-sm text-muted-foreground italic mb-3 line-clamp-1">{product.subtitle[language]}</p>
         )}
 
-        <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t("products.currentBid")}</p>
-          <p className="text-xl font-serif font-bold text-gold">€{(product.currentBid || 0).toLocaleString()}</p>
+        <div className="mb-3 flex flex-col gap-1 mt-5">
+          {soldPriceFromResults !== null || product.status === 'sold' ? (
+            <>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">{t("products.startingBid")}</p>
+                <p className="text-sm font-medium text-foreground mb-2">€{(historicalStartingPrice || 0).toLocaleString()}</p>
+              </div>
+              <div className="pt-2 border-t border-destructive/20">
+                <p className="text-xs text-destructive uppercase tracking-wider mb-1">{t("products.soldFor")}</p>
+                <p className="text-xl font-serif font-bold text-destructive">€{(finalSoldPrice || 0).toLocaleString()}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              {isAuctionCompleted ? (
+                <>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t("products.startingBid")}</p>
+                  <p className="text-xl font-serif font-bold text-foreground">€{(historicalStartingPrice || 0).toLocaleString()}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t("products.currentBid")}</p>
+                  <p className="text-xl font-serif font-bold text-gold">€{Math.max(product.currentBid || 0, historicalStartingPrice || 0).toLocaleString()}</p>
+                </>
+              )}
+            </>
+          )}
         </div>
         <Button
           variant="outline"
-          size="sm"
-          className="w-full gap-1.5 mt-3"
+          className="w-full mt-2 bg-background hover:bg-gold hover:text-white border-gold text-gold transition-all duration-300 group"
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/lot/${product.id}`);
+            sessionStorage.setItem('indexScrollPos', window.scrollY.toString());
+            navigate(`/lot/${product.id}${effectiveAuctionId ? `?auctionId=${effectiveAuctionId}` : ''}`);
           }}
         >
           <Eye className="w-4 h-4" />

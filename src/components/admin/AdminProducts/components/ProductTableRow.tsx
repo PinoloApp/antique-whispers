@@ -111,7 +111,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
                 </Select>
             </td>
             <td className="px-4 py-4 text-foreground font-medium">
-                €{product.currentBid.toLocaleString()}
+                €{product.startingPrice.toLocaleString()}
             </td>
             <td className="px-4 py-4 text-right">
                 <DropdownMenu>

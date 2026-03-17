@@ -2,8 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation, useNavigationType } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { DataProvider } from "@/contexts/DataContext";
@@ -28,9 +28,19 @@ const queryClient = new QueryClient();
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
+  const navType = useNavigationType();
+  const prevPathname = useRef(pathname);
+
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+    // Only scroll to top if:
+    // 1. Navigation is PUSH (new page)
+    // 2. AND Pathname changed (not just search params)
+    if (navType === "PUSH" && pathname !== prevPathname.current) {
+      window.scrollTo(0, 0);
+    }
+    prevPathname.current = pathname;
+  }, [pathname, navType]);
+
   return null;
 };
 

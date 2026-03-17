@@ -73,18 +73,18 @@ export const ProductMobileCard: React.FC<ProductMobileCardProps> = ({
             <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                     <span className="text-muted-foreground">
+                        {language === "en" ? "Starting:" : "Početna:"}
+                    </span>{" "}
+                    <span className="font-medium text-foreground">
+                        €{product.startingPrice.toLocaleString()}
+                    </span>
+                </div>
+                <div className="col-span-2">
+                    <span className="text-muted-foreground">
                         {language === "en" ? "Category:" : "Kategorija:"}
                     </span>{" "}
                     <span className="font-medium">
                         {categories.find((c) => c.id === product.category)?.title[language] || product.category}
-                    </span>
-                </div>
-                <div>
-                    <span className="text-muted-foreground">
-                        {language === "en" ? "Starting:" : "Početna:"}
-                    </span>{" "}
-                    <span className="font-medium">
-                        €{product.currentBid.toLocaleString()}
                     </span>
                 </div>
             </div>

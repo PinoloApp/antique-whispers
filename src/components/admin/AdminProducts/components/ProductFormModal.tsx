@@ -288,13 +288,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             <label className="text-sm font-medium">{language === "en" ? "Starting Price" : "Početna cena"}</label>
                             <Input
                                 type="number"
-                                value={formData.currentBid}
-                                onChange={(e) => setFormData({ ...formData, currentBid: e.target.value })}
-                                onBlur={() => markFormTouched("currentBid")}
+                                value={formData.startingPrice}
+                                onChange={(e) => setFormData({ ...formData, startingPrice: e.target.value })}
+                                onBlur={() => markFormTouched("startingPrice")}
                                 required
                             />
-                            {getErr("currentBid", formData.currentBid) && (
-                                <p className="text-xs text-destructive mt-1">{getErr("currentBid", formData.currentBid)}</p>
+                            {getErr("startingPrice", formData.startingPrice) && (
+                                <p className="text-xs text-destructive mt-1">{getErr("startingPrice", formData.startingPrice)}</p>
                             )}
                         </div>
 

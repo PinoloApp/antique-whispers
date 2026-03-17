@@ -5,7 +5,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Package, Layers, Heart, Hash } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import AuthDialog from "./AuthDialog";
 import { useAuth } from "@/contexts/authContexts";
@@ -22,13 +22,14 @@ import {
 
 interface CollectionCardProps {
   collection: Collection;
+  auctionId?: number | null;
 }
 
-const CollectionCard = ({ collection }: CollectionCardProps) => {
+const CollectionCard = ({ collection, auctionId: contextAuctionId }: CollectionCardProps) => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { userLoggedIn } = useAuth();
-  const { collectionProducts: products } = useData();
+  const { collectionProducts: products, auctions } = useData();
   const { toggleCollectionFavorite, isCollectionFavorite } = useFavorites();
   const { toast } = useToast();
   const [isHovered, setIsHovered] = useState(false);
@@ -59,12 +60,43 @@ const CollectionCard = ({ collection }: CollectionCardProps) => {
     setShowConfirm(false);
   };
 
+  const effectiveAuctionId = contextAuctionId || collection.auctionId;
+
+  const soldPriceFromResults = useMemo(() => {
+    if (!effectiveAuctionId) return null;
+    const auction = auctions.find(a => a.id === effectiveAuctionId);
+    if (auction?.status === 'completed' && auction.results && auction.results[collection.id.toString()]) {
+      return auction.results[collection.id.toString()];
+    }
+    return null;
+  }, [effectiveAuctionId, auctions, collection.id]);
+
+  const historicalStartingPrice = useMemo(() => {
+    if (!effectiveAuctionId) return collection.startingPrice;
+    const auction = auctions.find(a => a.id === effectiveAuctionId);
+    if (auction?.initialPrices && auction.initialPrices[collection.id.toString()] !== undefined) {
+      return auction.initialPrices[collection.id.toString()];
+    }
+    return collection.startingPrice;
+  }, [effectiveAuctionId, auctions, collection.id, collection.startingPrice]);
+
+  const isAuctionCompleted = useMemo(() => {
+    if (!effectiveAuctionId) return false;
+    const auction = auctions.find(a => a.id === effectiveAuctionId);
+    return auction?.status === 'completed';
+  }, [effectiveAuctionId, auctions]);
+
+  const finalSoldPrice = soldPriceFromResults !== null ? soldPriceFromResults : collection.currentBid;
+
   return (
     <div
-      className="group bg-card rounded-lg overflow-hidden shadow-soft hover:shadow-card transition-all duration-300 border border-border cursor-pointer"
+      className="group bg-card rounded-lg overflow-hidden shadow-soft hover:shadow-card transition-all duration-300 border border-border cursor-pointer h-full flex flex-col"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => navigate(`/collection/${collection.id}`)}
+      onClick={() => {
+        sessionStorage.setItem('indexScrollPos', window.scrollY.toString());
+        navigate(`/collection/${collection.id}${effectiveAuctionId ? `?auctionId=${effectiveAuctionId}` : ''}`);
+      }}
     >
       {/* Image Container */}
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
@@ -130,8 +162,8 @@ const CollectionCard = ({ collection }: CollectionCardProps) => {
       </div>
 
       {/* Content */}
-      <div className="p-5 pt-3">
-        <h3 className="font-serif text-lg font-semibold text-foreground mb-2 line-clamp-2 min-h-[3.5rem]">
+      <div className="p-5 pt-3 flex-1 flex flex-col">
+        <h3 className="font-serif text-lg font-semibold text-foreground mb-2 line-clamp-2">
           {displayName}
         </h3>
 
@@ -139,22 +171,56 @@ const CollectionCard = ({ collection }: CollectionCardProps) => {
           <p className="text-sm text-muted-foreground italic mb-3 line-clamp-1">{description}</p>
         )}
 
-        <div className="mb-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-            {language === "en" ? "Current Price" : "Trenutna cena"}
-          </p>
-          <p className="text-xl font-serif font-bold text-gold">
-            €{(collection.currentBid || 0).toLocaleString()}
-          </p>
+        <div className="mb-3 flex flex-col gap-1 mt-5">
+          {soldPriceFromResults !== null || collection.status === 'sold' ? (
+            <>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                  {language === "en" ? "Starting Price" : "Početna cena"}
+                </p>
+                <p className="text-sm font-medium text-foreground mb-2">€{(historicalStartingPrice || 0).toLocaleString()}</p>
+              </div>
+              <div className="pt-2 border-t border-destructive/20">
+                <p className="text-xs text-destructive uppercase tracking-wider mb-1">
+                  {language === "en" ? "Sold For" : "Prodato za"}
+                </p>
+                <p className="text-xl font-serif font-bold text-destructive">
+                  €{(finalSoldPrice || 0).toLocaleString()}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              {isAuctionCompleted ? (
+                <>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                    {language === "en" ? "Starting Price" : "Početna cena"}
+                  </p>
+                  <p className="text-xl font-serif font-bold text-foreground">
+                    €{(historicalStartingPrice || 0).toLocaleString()}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                    {language === "en" ? "Current Price" : "Trenutna cena"}
+                  </p>
+                  <p className="text-xl font-serif font-bold text-gold">
+                    €{Math.max(collection.currentBid || 0, historicalStartingPrice || 0).toLocaleString()}
+                  </p>
+                </>
+              )}
+            </>
+          )}
         </div>
 
         <Button
           variant="outline"
-          size="sm"
-          className="w-full gap-1.5"
+          className="w-full mt-2 bg-background hover:bg-gold hover:text-white border-gold text-gold transition-all duration-300 group"
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/collection/${collection.id}`);
+            sessionStorage.setItem('indexScrollPos', window.scrollY.toString());
+            navigate(`/collection/${collection.id}${effectiveAuctionId ? `?auctionId=${effectiveAuctionId}` : ''}`);
           }}
         >
           <Eye className="w-4 h-4" />

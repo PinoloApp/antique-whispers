@@ -281,6 +281,8 @@ export const AuctionFormModal: React.FC<AuctionFormModalProps> = ({
                         setExpandedColCategories={setExpandedColCategories}
                         setExpandedColSubcategories={setExpandedColSubcategories}
                         originalCollectionIds={originalCollectionIds}
+                        bidSteps={bidSteps}
+                        setBidSteps={setBidSteps}
                         disabled={isReadOnly}
                     />
 

@@ -35,9 +35,13 @@ import {
   Landmark,
   Check,
   X,
+  Ban,
+  CirclePause,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { PaymentService } from "@/services/paymentService";
+import { Payment as PaymentType } from "@/contexts/DataContext";
 
 import { useToast } from "@/hooks/use-toast";
 import { getFieldError, nameRules, emailRules, phoneRules, type ValidationRule, validators } from "@/lib/validation";
@@ -197,50 +201,98 @@ const Profile = () => {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Map bids to UI data
-  const bidHistory = useMemo(() => {
-    return userBids.map(bid => {
-      const bidPid = Number(bid.productId);
-      const item = products.find(p => Number(p.id) === bidPid) ||
-        collections.find(c => Number(c.id) === bidPid) ||
-        collectionProducts.find(p => Number(p.id) === bidPid);
+  const [userPayments, setUserPayments] = useState<PaymentType[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
 
-      const itemName = item
-        ? (item as any).name?.[language] || (language === "en" ? (item as any).name : (item as any).namesr)
-        : `Lot #${bid.productId}`;
+  // Subscribe to user's payments
+  useEffect(() => {
+    if (!currentUser) {
+      setUserPayments([]);
+      setPaymentsLoading(false);
+      return;
+    }
 
-      const itemImage = item ? (item as any).image || ((item as any).images?.[0]) : "/placeholder.svg";
-      const lotNumber = item ? (item as any).lot : bid.productId;
-
-      const auction = auctions.find(a => Number(a.id) === Number(item?.auctionId));
-      const auctionId = auction?.id || "unknown";
-      const auctionName = (auction as any)?.title?.[language] || (auction as any)?.title || (language === "en" ? "Unknown Auction" : "Nepoznata Aukcija");
-      const auctionDate = auction?.endDate ? new Date(auction.endDate).toLocaleDateString() : "N/A";
-      const isAuctionCompleted = auction?.status === "completed";
-
-      let status: "won" | "lost" | "active" = "active";
-      if (isAuctionCompleted) {
-        status = bid.isWinning ? "won" : "lost";
-      } else if (auction?.status === "active") {
-        status = "active";
-      }
-
-      return {
-        id: bid.id,
-        lot: `Lot #${lotNumber}`,
-        name: itemName,
-        amount: bid.maxAmount,
-        status,
-        date: bid.timestamp instanceof Date ? bid.timestamp.toLocaleDateString() : new Date().toLocaleDateString(),
-        image: itemImage,
-        auctionId,
-        auctionName,
-        auctionDate,
-      };
+    const unsubscribe = PaymentService.subscribeToUser(currentUser.uid, (payments) => {
+      setUserPayments(payments);
+      setPaymentsLoading(false);
     });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Map bids to UI data (Highest bid per unique Lot participation)
+  const bidHistory = useMemo(() => {
+    const uniqueLots: Record<string, any> = {};
+
+    userBids.sort((a, b) => b.maxAmount - a.maxAmount).forEach(bid => {
+      const bidPid = String(bid.productId);
+      const auctionIdVal = String(bid.auctionId);
+      const key = `${auctionIdVal}-${bidPid}`;
+
+      if (!uniqueLots[key]) {
+        const item = products.find(p => String(p.id) === bidPid) ||
+          collections.find(c => String(c.id) === bidPid) ||
+          collectionProducts.find(p => String(p.id) === bidPid);
+
+        const itemName = item
+          ? (item as any).name?.[language] || (language === "en" ? (item as any).name : (item as any).namesr)
+          : `Lot #${bid.productId}`;
+
+        const itemImage = item ? (item as any).image || ((item as any).images?.[0]) : "/placeholder.svg";
+        const lotNumber = item ? (item as any).lot : bid.productId;
+
+        const auction = auctions.find(a => String(a.id) === auctionIdVal);
+        const auctionId = auction?.id || auctionIdVal || "unknown";
+        
+        // snapshot fallback if auction is deleted
+        const snapTitle = (bid as any).auctionTitle?.[language] || (bid as any).auctionTitle;
+        const auctionName = (auction as any)?.title?.[language] || (auction as any)?.title || snapTitle || (language === "en" ? "Unknown Auction" : "Nepoznata Aukcija");
+        
+        const snapEndDate = (bid as any).auctionEndDate;
+        const auctionDate = auction?.endDate 
+          ? new Date(auction.endDate).toLocaleDateString() 
+          : (snapEndDate ? (snapEndDate.toDate ? snapEndDate.toDate().toLocaleDateString() : new Date(snapEndDate).toLocaleDateString()) : "N/A");
+        
+        const isAuctionCompleted = auction?.status === "completed" || (auction === undefined && snapEndDate && new Date() > (snapEndDate.toDate ? snapEndDate.toDate() : new Date(snapEndDate)));
+
+        const snapStatus = (bid as any).auctionStatus;
+        let status: "won" | "lost" | "active" | "cancelled" | "paused" = "active";
+        
+        const effectiveStatus = auction?.status || snapStatus || "active";
+
+        if (effectiveStatus === "cancelled") {
+          status = "cancelled";
+        } else if (effectiveStatus === "paused") {
+          status = "paused";
+        } else if (isAuctionCompleted || effectiveStatus === "completed") {
+          status = bid.isWinning ? "won" : "lost";
+        } else {
+          status = "active";
+        }
+
+        const itemType = collections.find(c => c.id === bid.productId) ? 'collection' : 'lot';
+
+        uniqueLots[key] = {
+          id: bid.id,
+          lot: `Lot #${lotNumber}`,
+          name: itemName,
+          amount: bid.maxAmount,
+          status,
+          date: bid.timestamp instanceof Date ? bid.timestamp.toLocaleDateString() : new Date().toLocaleDateString(),
+          image: itemImage,
+          auctionId,
+          auctionName,
+          auctionDate,
+          productId: bid.productId,
+          itemType
+        };
+      }
+    });
+
+    return Object.values(uniqueLots);
   }, [userBids, products, collections, collectionProducts, auctions, language]);
 
-  // Group bids by auction and then by lot
+  // Group bids by auction
   const bidsByAuction = useMemo(() => {
     const grouped = bidHistory.reduce<Record<string, any>>((acc, bid) => {
       if (!acc[bid.auctionId]) {
@@ -248,15 +300,10 @@ const Profile = () => {
           id: bid.auctionId,
           name: bid.auctionName,
           date: bid.auctionDate,
-          lots: {}
+          lots: []
         };
       }
-
-      if (!acc[bid.auctionId].lots[bid.lot]) {
-        acc[bid.auctionId].lots[bid.lot] = [];
-      }
-
-      acc[bid.auctionId].lots[bid.lot].push(bid);
+      acc[bid.auctionId].lots.push(bid);
       return acc;
     }, {});
 
@@ -269,60 +316,47 @@ const Profile = () => {
     { label: language === "en" ? "Won Auctions" : "Dobijene Aukcije", value: bidHistory.filter(h => h.status === "won").length, icon: ShieldCheck },
   ], [userBids.length, bidHistory, language]);
 
-  // Group bids by lot
-  const groupedBids = bidHistory.reduce<Record<string, typeof bidHistory>>((acc, bid) => {
-    if (!acc[bid.lot]) acc[bid.lot] = [];
-    acc[bid.lot].push(bid);
-    return acc;
-  }, {});
 
-  // Won auctions for payment section
+  // Won auctions for payment section - Grouped by auctionTitle (which is an object {en, sr})
   const wonAuctions = useMemo(() => {
-    const wonBids = userBids.filter(bid => {
-      const bidPid = Number(bid.productId);
-      const item = products.find(p => Number(p.id) === bidPid) ||
-        collections.find(c => Number(c.id) === bidPid) ||
-        collectionProducts.find(p => Number(p.id) === bidPid);
-      const auction = auctions.find(a => Number(a.id) === Number(item?.auctionId));
-      return bid.isWinning && auction?.status === "completed";
-    });
-
-    const grouped = wonBids.reduce<Record<string, any>>((acc, bid) => {
-      const bidPid = Number(bid.productId);
-      const item = products.find(p => Number(p.id) === bidPid) ||
-        collections.find(c => Number(c.id) === bidPid) ||
-        collectionProducts.find(p => Number(p.id) === bidPid);
-      const auction = auctions.find(a => Number(a.id) === Number(item?.auctionId));
-      const auctionId = auction?.id || "unknown";
-
-      if (!acc[auctionId]) {
-        acc[auctionId] = {
-          id: auctionId,
-          name: (auction as any)?.title?.[language] || (auction as any)?.title || (language === "en" ? "Unknown Auction" : "Nepoznata Aukcija"),
-          date: auction?.endDate ? new Date(auction.endDate).toLocaleDateString() : "N/A",
-          paymentStatus: "pending",
+    const grouped = userPayments.reduce<Record<string, any>>((acc, payment) => {
+      // Use the sr auction title as the key for grouping, or a combo
+      const auctionNameKey = payment.auctionTitle.sr;
+      
+      if (!acc[auctionNameKey]) {
+        acc[auctionNameKey] = {
+          id: auctionNameKey, // Using title as ID for grouping UI
+          name: payment.auctionTitle[language] || payment.auctionTitle.sr,
+          date: payment.wonDate,
+          paymentStatus: payment.status, // overall status for the group, usually they are same
           wonLots: []
         };
       }
 
-      const itemName = item
-        ? (item as any).name?.[language] || (language === "en" ? (item as any).name : (item as any).namesr)
-        : `Lot #${bid.productId}`;
-      const itemImage = item ? (item as any).image || ((item as any).images?.[0]) : "/placeholder.svg";
-      const lotNumber = item ? (item as any).lot : bid.productId;
+      const auction = auctions.find(a => a.title.sr === payment.auctionTitle.sr || a.title.en === payment.auctionTitle.en);
+      const auctionId = (payment as any).auctionId || auction?.id;
 
-      acc[auctionId].wonLots.push({
-        lot: `Lot #${lotNumber}`,
-        name: itemName,
-        amount: bid.currentAmount,
-        image: itemImage,
+      acc[auctionNameKey].wonLots.push({
+        lot: payment.lotNumber.startsWith('Lot #') ? payment.lotNumber : `Lot #${payment.lotNumber}`,
+        name: payment.lotName[language] || payment.lotName.sr,
+        amount: payment.amount,
+        image: "/placeholder.svg", // We don't have image in payment doc yet, could add it
+        paymentId: payment.id, // link to individual payment
+        itemId: payment.itemId,
+        itemType: payment.itemType === 'product' ? 'lot' : 'collection',
+        auctionId
       });
+
+      // Update group status to 'overdue' if any item is overdue
+      if (payment.status === 'overdue' && acc[auctionNameKey].paymentStatus !== 'overdue') {
+        acc[auctionNameKey].paymentStatus = 'overdue';
+      }
 
       return acc;
     }, {});
 
     return Object.values(grouped);
-  }, [userBids, auctions, products, collections, collectionProducts, language]);
+  }, [userPayments, language]);
 
   const [expandedLots, setExpandedLots] = useState<Record<string, boolean>>({});
   const [bidFilter, setBidFilter] = useState<string>("all");
@@ -332,6 +366,14 @@ const Profile = () => {
     totalAmount: 0,
   });
   const [paymentMethod, setPaymentMethod] = useState<string>("card");
+
+  // Sort won auctions for display
+  const sortedWonAuctions = useMemo(() => {
+    return [...wonAuctions].sort((a, b) => {
+      const order = { overdue: 0, pending: 1, paid: 2 };
+      return (order[a.paymentStatus] || 1) - (order[b.paymentStatus] || 1);
+    });
+  }, [wonAuctions]);
 
   const handleSave = async () => {
     if (!currentUser) return;
@@ -363,22 +405,42 @@ const Profile = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { label: string; className: string }> = {
+    const variants: Record<string, { label: string; className: string; icon: any }> = {
       won: {
         label: language === "en" ? "Won" : "Dobijeno",
-        className: "bg-green-500/20 text-green-600 border-green-500/30",
+        className: "bg-green-500/10 text-green-700 border-green-200",
+        icon: Check,
       },
       active: {
         label: language === "en" ? "Active" : "Aktivno",
-        className: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30",
+        className: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
+        icon: Clock,
       },
       lost: {
         label: language === "en" ? "Lost" : "Izgubljeno",
-        className: "bg-red-500/20 text-red-600 border-red-500/30",
+        className: "bg-red-500/10 text-red-700 border-red-200",
+        icon: X,
+      },
+      cancelled: {
+        label: language === "en" ? "Cancelled" : "Otkazano",
+        className: "bg-slate-500/10 text-slate-600 border-slate-200",
+        icon: Ban,
+      },
+      paused: {
+        label: language === "en" ? "Paused" : "Pauzirano",
+        className: "bg-orange-500/10 text-orange-600 border-orange-200",
+        icon: CirclePause,
       },
     };
     const v = variants[status] || variants.lost;
-    return <Badge className={v.className}>{v.label}</Badge>;
+    const Icon = v.icon;
+
+    return (
+      <Badge variant="outline" className={`flex items-center gap-1.5 py-0.5 px-2.5 font-medium ${v.className}`}>
+        <Icon className="w-3 h-3 stroke-[2.5px]" />
+        {v.label}
+      </Badge>
+    );
   };
 
   return (
@@ -652,6 +714,8 @@ const Profile = () => {
                       { value: "won", label: language === "en" ? "Won" : "Dobijeno" },
                       { value: "active", label: language === "en" ? "Active" : "Aktivno" },
                       { value: "lost", label: language === "en" ? "Lost" : "Izgubljeno" },
+                      { value: "cancelled", label: language === "en" ? "Cancelled" : "Otkazano" },
+                      { value: "paused", label: language === "en" ? "Paused" : "Pauzirano" },
                     ].map((filter) => (
                       <button
                         key={filter.value}
@@ -670,14 +734,13 @@ const Profile = () => {
                     {bidsByAuction
                       .filter((auction) => {
                         if (bidFilter === "all") return true;
-                        // Check if any lot in this auction matches the filter
-                        return Object.values(auction.lots).some((bids: any) => bids[0].status === bidFilter);
+                        return auction.lots.some((bid: any) => bid.status === bidFilter);
                       })
                       .map((auction) => {
                         const isExpanded = expandedLots[`auction-bid-${auction.id}`] ?? false;
-                        const filteredLots = Object.entries(auction.lots).filter(([, bids]: any) => {
+                        const filteredLots = auction.lots.filter((bid: any) => {
                           if (bidFilter === "all") return true;
-                          return bids[0].status === bidFilter;
+                          return bid.status === bidFilter;
                         });
 
                         return (
@@ -707,82 +770,28 @@ const Profile = () => {
                             </CollapsibleTrigger>
                             <CollapsibleContent>
                               <div className="ml-4 border-l-2 border-primary/20 pl-4 space-y-3 mt-1 mb-4">
-                                {filteredLots.map(([lot, bids]: any) => {
-                                  const latestBid = bids[0];
-                                  const hasMultiple = bids.length > 1;
-                                  const isLotExpanded = expandedLots[`lot-bid-${auction.id}-${lot}`] || false;
-
-                                  if (!hasMultiple) {
-                                    return (
-                                      <div
-                                        key={lot}
-                                        className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-border/50"
-                                      >
-                                        <img
-                                          src={latestBid.image}
-                                          alt={latestBid.name}
-                                          className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
-                                        />
-                                        <div className="flex-1 text-sm">
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-medium text-primary">{latestBid.lot}</span>
-                                            {getStatusBadge(latestBid.status)}
-                                          </div>
-                                          <p className="font-medium text-foreground">{latestBid.name}</p>
-                                          <p className="text-xs text-muted-foreground">{latestBid.date}</p>
-                                        </div>
-                                        <p className="font-bold text-foreground">€{latestBid.amount.toLocaleString()}</p>
+                                {filteredLots.map((bid: any) => (
+                                  <div
+                                    key={bid.id}
+                                    onClick={() => navigate(`/${bid.itemType}/${bid.productId}${bid.auctionId ? `?auctionId=${bid.auctionId}` : ''}`)}
+                                    className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors cursor-pointer"
+                                  >
+                                    <img
+                                      src={bid.image}
+                                      alt={bid.name}
+                                      className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                                    />
+                                    <div className="flex-1 text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-primary">{bid.lot}</span>
+                                        {getStatusBadge(bid.status)}
                                       </div>
-                                    );
-                                  }
-
-                                  return (
-                                    <Collapsible
-                                      key={lot}
-                                      open={isLotExpanded}
-                                      onOpenChange={(open) => setExpandedLots((prev) => ({ ...prev, [`lot-bid-${auction.id}-${lot}`]: open }))}
-                                    >
-                                      <CollapsibleTrigger asChild>
-                                        <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-border/50 cursor-pointer">
-                                          <img
-                                            src={latestBid.image}
-                                            alt={latestBid.name}
-                                            className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
-                                          />
-                                          <div className="flex-1 text-sm">
-                                            <div className="flex items-center gap-2">
-                                              <span className="font-medium text-primary">{latestBid.lot}</span>
-                                              {getStatusBadge(latestBid.status)}
-                                            </div>
-                                            <p className="font-medium text-foreground">{latestBid.name}</p>
-                                          </div>
-                                          <div className="flex items-center gap-2">
-                                            <Badge variant="outline" className="text-[10px] px-1 h-5">
-                                              {bids.length}
-                                            </Badge>
-                                            <p className="font-bold text-foreground">€{latestBid.amount.toLocaleString()}</p>
-                                            <ChevronDown
-                                              className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${isLotExpanded ? "rotate-180" : ""}`}
-                                            />
-                                          </div>
-                                        </div>
-                                      </CollapsibleTrigger>
-                                      <CollapsibleContent>
-                                        <div className="ml-3 border-l border-primary/10 pl-3 space-y-1 mt-1">
-                                          {bids.slice(1).map((bid: any) => (
-                                            <div
-                                              key={bid.id}
-                                              className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs"
-                                            >
-                                              <span className="text-muted-foreground">{bid.date}</span>
-                                              <span className="font-semibold text-foreground">€{bid.amount.toLocaleString()}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </CollapsibleContent>
-                                    </Collapsible>
-                                  );
-                                })}
+                                      <p className="font-medium text-foreground">{bid.name}</p>
+                                      <p className="text-xs text-muted-foreground">{bid.date}</p>
+                                    </div>
+                                    <p className="font-bold text-foreground">€{bid.amount.toLocaleString()}</p>
+                                  </div>
+                                ))}
                               </div>
                             </CollapsibleContent>
                           </Collapsible>
@@ -790,7 +799,7 @@ const Profile = () => {
                       })}
                     {bidsByAuction.filter((auction) => {
                       if (bidFilter === "all") return true;
-                      return Object.values(auction.lots).some((bids: any) => bids[0].status === bidFilter);
+                      return auction.lots.some((bid: any) => bid.status === bidFilter);
                     }).length === 0 && (
                         <div className="text-center py-12 text-muted-foreground">
                           <Gavel className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -821,7 +830,7 @@ const Profile = () => {
                             label: language === "en" ? "Awaiting Payment" : "Čeka plaćanje",
                             className: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30",
                           },
-                          past_due: {
+                          overdue: {
                             label: language === "en" ? "Past Due" : "Isteklo",
                             className: "bg-red-500/20 text-red-600 border-red-500/30",
                           },
@@ -830,7 +839,15 @@ const Profile = () => {
                         return <Badge className={v.className}>{v.label}</Badge>;
                       };
 
-                      if (wonAuctions.length === 0) {
+                      if (paymentsLoading) {
+                        return <div className="space-y-4">
+                          {[...Array(2)].map((_, i) => (
+                            <div key={i} className="h-24 bg-muted animate-pulse rounded-lg border border-border" />
+                          ))}
+                        </div>;
+                      }
+
+                      if (sortedWonAuctions.length === 0) {
                         return (
                           <div className="text-center py-12 text-muted-foreground bg-muted/20 rounded-lg border border-dashed border-border">
                             <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -839,11 +856,7 @@ const Profile = () => {
                         );
                       }
 
-                      return [...wonAuctions]
-                        .sort((a, b) => {
-                          const order = { past_due: 0, pending: 1, paid: 2 };
-                          return (order[a.paymentStatus] || 1) - (order[b.paymentStatus] || 1);
-                        })
+                      return sortedWonAuctions
                         .map((auction) => {
                           const totalAmount = auction.wonLots.reduce((sum: number, lot: any) => sum + lot.amount, 0);
                           const needsPayment = auction.paymentStatus !== "paid";
@@ -889,7 +902,8 @@ const Profile = () => {
                                   {auction.wonLots.map((lot: any, idx: number) => (
                                     <div
                                       key={idx}
-                                      className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-border/50"
+                                      onClick={() => navigate(`/${lot.itemType}/${lot.itemId}${lot.auctionId ? `?auctionId=${lot.auctionId}` : ''}`)}
+                                      className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors cursor-pointer"
                                     >
                                       <img
                                         src={lot.image}

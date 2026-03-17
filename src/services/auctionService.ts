@@ -19,6 +19,9 @@ import {
 import { db } from "../firebase/firebase";
 import { Auction } from "../contexts/DataContext";
 
+import { UserService } from "./userService";
+import { NotificationService } from "./notificationService";
+
 const COLLECTION_NAME = "auctions";
 
 export const AuctionService = {
@@ -133,6 +136,15 @@ export const AuctionService = {
             ...auction,
             createdAt: new Date(),
         });
+
+        // Notify all users about the new auction announcement
+        try {
+            const userIds = await UserService.getAllUserIds();
+            await NotificationService.sendAuctionAnnouncement(auction, userIds);
+        } catch (error) {
+            console.error("Failed to send auction announcement notifications:", error);
+            // We don't throw here to avoid failing the auction creation if notifications fail
+        }
     },
 
     /**

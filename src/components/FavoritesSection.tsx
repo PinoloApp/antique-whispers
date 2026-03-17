@@ -38,7 +38,7 @@ const FavoritesSection = () => {
               {favoriteProducts.map((product, index) => (
                 <div
                   key={product.id}
-                  className="animate-fade-in"
+                  className="animate-fade-in h-full"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <ProductCard product={product} />
