@@ -89,6 +89,7 @@ const CollectionCard = ({ collection, auctionId: contextAuctionId }: CollectionC
   const finalSoldPrice = soldPriceFromResults !== null ? soldPriceFromResults : collection.currentBid;
 
   return (
+    <div className="relative h-full">
     <div
       className="group bg-card rounded-lg overflow-hidden shadow-soft hover:shadow-card transition-all duration-300 border border-border cursor-pointer h-full flex flex-col"
       onMouseEnter={() => setIsHovered(true)}
@@ -132,20 +133,7 @@ const CollectionCard = ({ collection, auctionId: contextAuctionId }: CollectionC
         </div>
 
         {/* Favorite button */}
-        {!userLoggedIn ? (
-          <AuthDialog
-            defaultTab="login"
-            className="absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 bg-background/80 text-muted-foreground hover:bg-background hover:text-primary"
-          >
-            <button
-              className="absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 bg-background/80 text-muted-foreground hover:bg-background hover:text-primary"
-              aria-label="Add to favorites"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Heart className="w-4 h-4" />
-            </button>
-          </AuthDialog>
-        ) : (
+        {userLoggedIn && (
           <button
             onClick={handleFavoriteClick}
             className={`absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 ${favorited
@@ -228,26 +216,46 @@ const CollectionCard = ({ collection, auctionId: contextAuctionId }: CollectionC
         </Button>
       </div>
 
-      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{language === "en" ? "Are you sure?" : "Da li ste sigurni?"}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {favorited
-                ? language === "en"
-                  ? `Remove "${displayName}" from favorites?`
-                  : `Ukloniti "${displayName}" iz omiljenih?`
-                : language === "en"
-                  ? `Add "${displayName}" to favorites?`
-                  : `Dodati "${displayName}" u omiljene?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{language === "en" ? "Cancel" : "Otkaži"}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmFavorite}>{language === "en" ? "Yes" : "Da"}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+    </div>
+
+    {!userLoggedIn && (
+      <AuthDialog
+        defaultTab="login"
+        className="absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 bg-background/80 text-muted-foreground hover:bg-background hover:text-primary"
+      >
+        <button
+          className="absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 bg-background/80 text-muted-foreground hover:bg-background hover:text-primary"
+          aria-label="Add to favorites"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Heart className="w-4 h-4" />
+        </button>
+      </AuthDialog>
+    )}
+
+    <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{language === "en" ? "Are you sure?" : "Da li ste sigurni?"}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {favorited
+              ? language === "en"
+                ? `Remove "${displayName}" from favorites?`
+                : `Ukloniti "${displayName}" iz omiljenih?`
+              : language === "en"
+                ? `Add "${displayName}" to favorites?`
+                : `Dodati "${displayName}" u omiljene?`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{language === "en" ? "Cancel" : "Otkaži"}</AlertDialogCancel>
+          <AlertDialogAction onClick={(e) => {
+            e.stopPropagation();
+            handleConfirmFavorite();
+          }}>{language === "en" ? "Yes" : "Da"}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 };

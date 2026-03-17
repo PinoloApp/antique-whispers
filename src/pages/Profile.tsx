@@ -239,7 +239,7 @@ const Profile = () => {
           : `Lot #${bid.productId}`;
 
         const itemImage = item ? (item as any).image || ((item as any).images?.[0]) : "/placeholder.svg";
-        const lotNumber = item ? (item as any).lot : bid.productId;
+        const lotNumber = item ? ((item as any).lot || (item as any).lotNumber) : bid.productId;
 
         const auction = auctions.find(a => String(a.id) === auctionIdVal);
         const auctionId = auction?.id || auctionIdVal || "unknown";

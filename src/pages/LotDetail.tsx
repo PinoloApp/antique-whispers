@@ -45,10 +45,11 @@ const LotDetail = () => {
   const auctionIdFromUrl = searchParams.get("auctionId");
   const navigate = useNavigate();
   const { language, t } = useLanguage();
-  const { products, auctions } = useData();
+  const { products, auctions, loading } = useData();
   const { toggleFavorite, isFavorite } = useFavorites();
   const { userLoggedIn } = useAuth();
   const { toast } = useToast();
+  const { categories } = useCategories();
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
@@ -82,6 +83,17 @@ const LotDetail = () => {
     setShowConfirm(false);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-gold border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-muted-foreground font-serif italic">
+          {language === "en" ? "Loading item details..." : "Učitavanje detalja..."}
+        </p>
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="min-h-screen bg-background">
@@ -100,7 +112,6 @@ const LotDetail = () => {
     );
   }
 
-  const { categories } = useCategories();
   const displayName = language === "en" ? product.name : product.namesr;
   const description = product.description[language];
   const images = product.images?.length > 0 ? product.images : [product.image];

@@ -40,7 +40,7 @@ const CollectionDetail = () => {
   const auctionIdFromUrl = searchParams.get("auctionId");
   const navigate = useNavigate();
   const { language, t } = useLanguage();
-  const { collections, collectionProducts: products, auctions } = useData();
+  const { collections, collectionProducts: products, auctions, loading } = useData();
   const { categories } = useCategories();
   const { toggleCollectionFavorite, isCollectionFavorite } = useFavorites();
   const { userLoggedIn } = useAuth();
@@ -94,6 +94,17 @@ const CollectionDetail = () => {
     });
     setShowConfirm(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-gold border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-muted-foreground font-serif italic">
+          {language === "en" ? "Loading collection details..." : "Učitavanje detalja..."}
+        </p>
+      </div>
+    );
+  }
 
   if (!collection) {
     return (

@@ -144,6 +144,7 @@ interface DataContextType {
   getProductBids: (productId: number, auctionId: number) => Bid[];
   selectedAuctionId: number | null;
   setSelectedAuctionId: (id: number | null) => void;
+  loading: boolean;
 }
 
 const defaultBidSteps: BidStep[] = [
@@ -168,10 +169,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [bids, setBids] = useState<Bid[]>([]); // Bids will be populated only for admins or via manual fetch
   const [selectedAuctionId, setSelectedAuctionId] = useState<number | null>(null);
 
-  const { products } = useProducts();
-  const { collectionProducts } = useCollectionProducts();
-  const { collections } = useCollections();
-  const { auctions, updateAuction } = useAuctions();
+  const { products, loading: productsLoading } = useProducts();
+  const { collectionProducts, loading: colProdsLoading } = useCollectionProducts();
+  const { collections, loading: collectionsLoading } = useCollections();
+  const { auctions, updateAuction, loading: auctionsLoading } = useAuctions();
+
+  const loading = productsLoading || colProdsLoading || collectionsLoading || auctionsLoading;
 
   const { isAdmin } = useAdminAuth();
 
@@ -253,6 +256,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       getProductBids,
       selectedAuctionId,
       setSelectedAuctionId,
+      loading,
     }}>
       {children}
     </DataContext.Provider>
