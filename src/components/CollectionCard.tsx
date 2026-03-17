@@ -90,172 +90,172 @@ const CollectionCard = ({ collection, auctionId: contextAuctionId }: CollectionC
 
   return (
     <div className="relative h-full">
-    <div
-      className="group bg-card rounded-lg overflow-hidden shadow-soft hover:shadow-card transition-all duration-300 border border-border cursor-pointer h-full flex flex-col"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => {
-        sessionStorage.setItem('indexScrollPos', window.scrollY.toString());
-        navigate(`/collection/${collection.id}${effectiveAuctionId ? `?auctionId=${effectiveAuctionId}` : ''}`);
-      }}
-    >
-      {/* Image Container */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        {/* Collection image or first lot image */}
-        <img
-          src={previewImage}
-          alt={displayName}
-          className={`w-full h-full object-cover transition-transform duration-500 ${isHovered ? "scale-110" : "scale-100"}`}
-        />
+      <div
+        className="group bg-card rounded-lg overflow-hidden shadow-soft hover:shadow-card transition-all duration-300 border border-border cursor-pointer h-full flex flex-col"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={() => {
+          sessionStorage.setItem('indexScrollPos', window.scrollY.toString());
+          navigate(`/collection/${collection.id}${effectiveAuctionId ? `?auctionId=${effectiveAuctionId}` : ''}`);
+        }}
+      >
+        {/* Image Container */}
+        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+          {/* Collection image or first lot image */}
+          <img
+            src={previewImage}
+            alt={displayName}
+            className={`w-full h-full object-cover transition-transform duration-500 ${isHovered ? "scale-110" : "scale-100"}`}
+          />
 
-        {/* Badges */}
-        <div className="absolute top-3 left-3 right-12 flex flex-wrap gap-1.5 z-10">
-          {collection.lotNumber && (
-            <Badge variant="outline" className="text-xs gap-1 bg-background/80 backdrop-blur-sm">
-              <Hash className="w-3 h-3" />
-              {language === "en" ? "Lot" : "Lot"} {collection.lotNumber}
+          {/* Badges */}
+          <div className="absolute top-3 left-3 right-12 flex flex-wrap gap-1.5 z-10">
+            {collection.lotNumber && (
+              <Badge variant="outline" className="text-xs gap-1 bg-background/80 backdrop-blur-sm">
+                <Hash className="w-3 h-3" />
+                {language === "en" ? "Lot" : "Lot"} {collection.lotNumber}
+              </Badge>
+            )}
+            <Badge className="text-xs gap-1 bg-primary text-primary-foreground border-0">
+              <Layers className="w-3 h-3" />
+              {language === "en" ? "Collection" : "Kolekcija"}
             </Badge>
+            <Badge variant="outline" className="text-xs gap-1 bg-background/80 backdrop-blur-sm">
+              <Package className="w-3 h-3" />
+              {collectionProducts.length} {language === "en"
+                ? collectionProducts.length === 1 ? "lot" : "lots"
+                : collectionProducts.length === 1
+                  ? "lot"
+                  : collectionProducts.length % 10 >= 2 && collectionProducts.length % 10 <= 4 && (collectionProducts.length % 100 < 10 || collectionProducts.length % 100 >= 20)
+                    ? "lota"
+                    : "lotova"}
+            </Badge>
+          </div>
+
+          {/* Favorite button */}
+          {userLoggedIn && (
+            <button
+              onClick={handleFavoriteClick}
+              className={`absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 ${favorited
+                ? "bg-primary text-primary-foreground"
+                : "bg-background/80 text-muted-foreground hover:bg-background hover:text-primary"
+                }`}
+              aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Heart className={`w-4 h-4 ${favorited ? "fill-current" : ""}`} />
+            </button>
           )}
-          <Badge className="text-xs gap-1 bg-primary text-primary-foreground border-0">
-            <Layers className="w-3 h-3" />
-            {language === "en" ? "Collection" : "Kolekcija"}
-          </Badge>
-          <Badge variant="outline" className="text-xs gap-1 bg-background/80 backdrop-blur-sm">
-            <Package className="w-3 h-3" />
-            {collectionProducts.length} {language === "en"
-              ? collectionProducts.length === 1 ? "lot" : "lots"
-              : collectionProducts.length === 1
-                ? "lot"
-                : collectionProducts.length % 10 >= 2 && collectionProducts.length % 10 <= 4 && (collectionProducts.length % 100 < 10 || collectionProducts.length % 100 >= 20)
-                  ? "lota"
-                  : "lotova"}
-          </Badge>
+
+          <div className="absolute inset-0 bg-gradient-to-t from-charcoal/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
         </div>
 
-        {/* Favorite button */}
-        {userLoggedIn && (
-          <button
-            onClick={handleFavoriteClick}
-            className={`absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 ${favorited
-              ? "bg-primary text-primary-foreground"
-              : "bg-background/80 text-muted-foreground hover:bg-background hover:text-primary"
-              }`}
-            aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
-          >
-            <Heart className={`w-4 h-4 ${favorited ? "fill-current" : ""}`} />
-          </button>
-        )}
+        {/* Content */}
+        <div className="p-5 pt-3 flex-1 flex flex-col">
+          <h3 className="font-serif text-lg font-semibold text-foreground mb-2 line-clamp-2">
+            {displayName}
+          </h3>
 
-        <div className="absolute inset-0 bg-gradient-to-t from-charcoal/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-      </div>
+          {description && (
+            <p className="text-sm text-muted-foreground italic mb-3 line-clamp-1">{description}</p>
+          )}
 
-      {/* Content */}
-      <div className="p-5 pt-3 flex-1 flex flex-col">
-        <h3 className="font-serif text-lg font-semibold text-foreground mb-2 line-clamp-2">
-          {displayName}
-        </h3>
-
-        {description && (
-          <p className="text-sm text-muted-foreground italic mb-3 line-clamp-1">{description}</p>
-        )}
-
-        <div className="mb-3 flex flex-col gap-1 mt-5">
-          {soldPriceFromResults !== null || collection.status === 'sold' ? (
-            <>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
-                  {language === "en" ? "Starting Price" : "Početna cena"}
-                </p>
-                <p className="text-sm font-medium text-foreground mb-2">€{(historicalStartingPrice || 0).toLocaleString()}</p>
-              </div>
-              <div className="pt-2 border-t border-destructive/20">
-                <p className="text-xs text-destructive uppercase tracking-wider mb-1">
-                  {language === "en" ? "Sold For" : "Prodato za"}
-                </p>
-                <p className="text-xl font-serif font-bold text-destructive">
-                  €{(finalSoldPrice || 0).toLocaleString()}
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              {isAuctionCompleted ? (
-                <>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+          <div className="mb-3 flex flex-col gap-1 mt-5">
+            {soldPriceFromResults !== null || collection.status === 'sold' ? (
+              <>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
                     {language === "en" ? "Starting Price" : "Početna cena"}
                   </p>
-                  <p className="text-xl font-serif font-bold text-foreground">
-                    €{(historicalStartingPrice || 0).toLocaleString()}
+                  <p className="text-sm font-medium text-foreground mb-2">€{(historicalStartingPrice || 0).toLocaleString()}</p>
+                </div>
+                <div className="pt-2 border-t border-destructive/20">
+                  <p className="text-xs text-destructive uppercase tracking-wider mb-1">
+                    {language === "en" ? "Sold For" : "Prodato za"}
                   </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-                    {language === "en" ? "Current Price" : "Trenutna cena"}
+                  <p className="text-xl font-serif font-bold text-destructive">
+                    €{(finalSoldPrice || 0).toLocaleString()}
                   </p>
-                  <p className="text-xl font-serif font-bold text-gold">
-                    €{Math.max(collection.currentBid || 0, historicalStartingPrice || 0).toLocaleString()}
-                  </p>
-                </>
-              )}
-            </>
-          )}
+                </div>
+              </>
+            ) : (
+              <>
+                {isAuctionCompleted ? (
+                  <>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                      {language === "en" ? "Starting Price" : "Početna cena"}
+                    </p>
+                    <p className="text-xl font-serif font-bold text-foreground">
+                      €{(historicalStartingPrice || 0).toLocaleString()}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                      {language === "en" ? "Current Price" : "Trenutna cena"}
+                    </p>
+                    <p className="text-xl font-serif font-bold text-gold">
+                      €{Math.max(collection.currentBid || 0, historicalStartingPrice || 0).toLocaleString()}
+                    </p>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+
+          <Button
+            variant="outline"
+            className="w-full mt-2 bg-background text-black border-black hover:bg-black hover:text-white transition-all duration-300 group"
+            onClick={(e) => {
+              e.stopPropagation();
+              sessionStorage.setItem('indexScrollPos', window.scrollY.toString());
+              navigate(`/collection/${collection.id}${effectiveAuctionId ? `?auctionId=${effectiveAuctionId}` : ''}`);
+            }}
+          >
+            <Eye className="w-4 h-4" />
+            {language === "en" ? "View Collection" : "Pogledajte kolekciju"}
+          </Button>
         </div>
 
-        <Button
-          variant="outline"
-          className="w-full mt-2 bg-background hover:bg-gold hover:text-white border-gold text-gold transition-all duration-300 group"
-          onClick={(e) => {
-            e.stopPropagation();
-            sessionStorage.setItem('indexScrollPos', window.scrollY.toString());
-            navigate(`/collection/${collection.id}${effectiveAuctionId ? `?auctionId=${effectiveAuctionId}` : ''}`);
-          }}
-        >
-          <Eye className="w-4 h-4" />
-          {language === "en" ? "View Collection" : "Pogledajte kolekciju"}
-        </Button>
       </div>
 
-    </div>
-
-    {!userLoggedIn && (
-      <AuthDialog
-        defaultTab="login"
-        className="absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 bg-background/80 text-muted-foreground hover:bg-background hover:text-primary"
-      >
-        <button
+      {!userLoggedIn && (
+        <AuthDialog
+          defaultTab="login"
           className="absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 bg-background/80 text-muted-foreground hover:bg-background hover:text-primary"
-          aria-label="Add to favorites"
-          onClick={(e) => e.stopPropagation()}
         >
-          <Heart className="w-4 h-4" />
-        </button>
-      </AuthDialog>
-    )}
+          <button
+            className="absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-20 bg-background/80 text-muted-foreground hover:bg-background hover:text-primary"
+            aria-label="Add to favorites"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Heart className="w-4 h-4" />
+          </button>
+        </AuthDialog>
+      )}
 
-    <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{language === "en" ? "Are you sure?" : "Da li ste sigurni?"}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {favorited
-              ? language === "en"
-                ? `Remove "${displayName}" from favorites?`
-                : `Ukloniti "${displayName}" iz omiljenih?`
-              : language === "en"
-                ? `Add "${displayName}" to favorites?`
-                : `Dodati "${displayName}" u omiljene?`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{language === "en" ? "Cancel" : "Otkaži"}</AlertDialogCancel>
-          <AlertDialogAction onClick={(e) => {
-            e.stopPropagation();
-            handleConfirmFavorite();
-          }}>{language === "en" ? "Yes" : "Da"}</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === "en" ? "Are you sure?" : "Da li ste sigurni?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {favorited
+                ? language === "en"
+                  ? `Remove "${displayName}" from favorites?`
+                  : `Ukloniti "${displayName}" iz omiljenih?`
+                : language === "en"
+                  ? `Add "${displayName}" to favorites?`
+                  : `Dodati "${displayName}" u omiljene?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{language === "en" ? "Cancel" : "Otkaži"}</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => {
+              e.stopPropagation();
+              handleConfirmFavorite();
+            }}>{language === "en" ? "Yes" : "Da"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
