@@ -90,12 +90,6 @@ export const ProductService = {
             case "price-desc":
                 queryConstraints.push(orderBy("currentBid", "desc"));
                 break;
-            case "lot-asc":
-                queryConstraints.push(orderBy("lot", "asc"));
-                break;
-            case "lot-desc":
-                queryConstraints.push(orderBy("lot", "desc"));
-                break;
             case "id-asc":
                 queryConstraints.push(orderBy("id", "asc"));
                 break;
@@ -240,12 +234,6 @@ export const ProductService = {
                 break;
             case "price-desc":
                 queryConstraints.push(orderBy("currentBid", "desc"));
-                break;
-            case "lot-asc":
-                queryConstraints.push(orderBy("lot", "asc"));
-                break;
-            case "lot-desc":
-                queryConstraints.push(orderBy("lot", "desc"));
                 break;
             case "id-asc":
                 queryConstraints.push(orderBy("id", "asc"));

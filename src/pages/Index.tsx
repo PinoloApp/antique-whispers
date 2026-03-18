@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DualSlider } from "@/components/ui/dual-slider";
 import { ArrowUpDown, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import clubBanner from "@/assets/club-banner.jpg";
 
 type SortOption = "lot-asc" | "lot-desc" | "price-asc" | "price-desc" | "name-asc" | "name-desc";
 
@@ -424,6 +425,14 @@ const Index = () => {
       <Header />
 
       <main>
+        <section className="w-full">
+          <img
+            src={clubBanner}
+            alt="SFINK Banner"
+            className="w-full h-auto object-cover block"
+          />
+        </section>
+
         <HeroSection
           nextAuctionDate={nextAuctionDate}
           auctions={auctions}

@@ -44,7 +44,7 @@ import { PaymentService } from "@/services/paymentService";
 import { Payment as PaymentType } from "@/contexts/DataContext";
 
 import { useToast } from "@/hooks/use-toast";
-import { getFieldError, nameRules, emailRules, phoneRules, type ValidationRule, validators } from "@/lib/validation";
+import { getFieldError, nameRules, emailRules, phoneRules } from "@/lib/validation";
 import { signOut } from "@/firebase/auth";
 import { useNavigate } from "react-router-dom";
 
@@ -243,21 +243,21 @@ const Profile = () => {
 
         const auction = auctions.find(a => String(a.id) === auctionIdVal);
         const auctionId = auction?.id || auctionIdVal || "unknown";
-        
+
         // snapshot fallback if auction is deleted
         const snapTitle = (bid as any).auctionTitle?.[language] || (bid as any).auctionTitle;
         const auctionName = (auction as any)?.title?.[language] || (auction as any)?.title || snapTitle || (language === "en" ? "Unknown Auction" : "Nepoznata Aukcija");
-        
+
         const snapEndDate = (bid as any).auctionEndDate;
-        const auctionDate = auction?.endDate 
-          ? new Date(auction.endDate).toLocaleDateString() 
+        const auctionDate = auction?.endDate
+          ? new Date(auction.endDate).toLocaleDateString()
           : (snapEndDate ? (snapEndDate.toDate ? snapEndDate.toDate().toLocaleDateString() : new Date(snapEndDate).toLocaleDateString()) : "N/A");
-        
+
         const isAuctionCompleted = auction?.status === "completed" || (auction === undefined && snapEndDate && new Date() > (snapEndDate.toDate ? snapEndDate.toDate() : new Date(snapEndDate)));
 
         const snapStatus = (bid as any).auctionStatus;
         let status: "won" | "lost" | "active" | "cancelled" | "paused" = "active";
-        
+
         const effectiveStatus = auction?.status || snapStatus || "active";
 
         if (effectiveStatus === "cancelled") {
@@ -322,7 +322,7 @@ const Profile = () => {
     const grouped = userPayments.reduce<Record<string, any>>((acc, payment) => {
       // Use the sr auction title as the key for grouping, or a combo
       const auctionNameKey = payment.auctionTitle.sr;
-      
+
       if (!acc[auctionNameKey]) {
         acc[auctionNameKey] = {
           id: auctionNameKey, // Using title as ID for grouping UI

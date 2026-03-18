@@ -10,9 +10,7 @@ export type ProductSortOption =
     | "name-asc"
     | "name-desc"
     | "price-asc"
-    | "price-desc"
-    | "lot-asc"
-    | "lot-desc";
+    | "price-desc";
 
 interface UseServerPaginatedProductsProps {
     language: "en" | "sr";
@@ -192,10 +190,6 @@ export const useServerPaginatedProducts = ({ language, categories, auctions, sta
                         return a.currentBid - b.currentBid;
                     case "price-desc":
                         return b.currentBid - a.currentBid;
-                    case "lot-asc":
-                        return a.lot.localeCompare(b.lot, undefined, { numeric: true });
-                    case "lot-desc":
-                        return b.lot.localeCompare(a.lot, undefined, { numeric: true });
                     case "id-asc":
                         return a.id - b.id;
                     case "id-desc":
@@ -300,8 +294,6 @@ export const useServerPaginatedProducts = ({ language, categories, auctions, sta
                 { value: "name-desc", label: language === "en" ? "Name Z-A" : "Ime Ž-A" },
                 { value: "price-asc", label: language === "en" ? "Price: Low to High" : "Cena: Rastuće" },
                 { value: "price-desc", label: language === "en" ? "Price: High to Low" : "Cena: Opadajuće" },
-                { value: "lot-asc", label: language === "en" ? "Lot # Ascending" : "Lot # Rastuće" },
-                { value: "lot-desc", label: language === "en" ? "Lot # Descending" : "Lot # Opadajuće" },
             ],
         },
     ];
