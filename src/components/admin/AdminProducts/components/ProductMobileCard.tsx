@@ -66,6 +66,9 @@ export const ProductMobileCard: React.FC<ProductMobileCardProps> = ({
                         <div className="font-medium text-foreground">
                             {language === "en" ? product.name : product.namesr}
                         </div>
+                        <div className="text-xs text-muted-foreground">
+                            {product.catalogMark}
+                        </div>
                     </div>
                 </div>
             </div>

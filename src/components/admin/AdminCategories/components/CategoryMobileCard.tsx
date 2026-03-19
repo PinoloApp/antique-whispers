@@ -160,14 +160,30 @@ export const CategoryMobileCard = memo(
                                 return (
                                     <div
                                         key={sub.id}
-                                        className={`flex items-center justify-between px-3 py-2 rounded text-sm ${isSubMatch ? "bg-primary/20 border border-primary/40" : "bg-muted/30"} ${!sub.isActive ? "opacity-60" : ""}`}
+                                        className={`flex items-center justify-between px-3 py-2 rounded transition-all text-sm ${isSubMatch ? "bg-primary/20 border border-primary/40 ring-1 ring-primary/20" : "bg-muted/30"} ${!sub.isActive ? "opacity-60" : ""}`}
                                     >
                                         <div className="flex items-center gap-2">
-                                            <span className="text-muted-foreground">•</span>
+                                            <span className={`text-sm ${isSubMatch ? "text-primary" : "text-muted-foreground"}`}>
+                                                {isSubMatch ? "→" : "•"}
+                                            </span>
                                             <div>
                                                 <span className="font-medium">{sub.title[language]}</span>
                                                 <div className="text-xs text-muted-foreground">{sub.description[language]}</div>
                                             </div>
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1 mx-1">
+                                                <Package className="w-3 h-3" />
+                                                {
+                                                    standaloneLots.filter((p) => p.category === category.id && p.subcategory === sub.id)
+                                                        .length
+                                                }
+                                            </span>
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1 mr-1">
+                                                <Layers className="w-3 h-3" />
+                                                {
+                                                    collections.filter((c) => c.category === category.id && c.subcategory === sub.id)
+                                                        .length
+                                                }
+                                            </span>
                                             {!sub.isActive && (
                                                 <Badge className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30 text-xs px-1.5 py-0">
                                                     {language === "en" ? "Inactive" : "Neaktivna"}

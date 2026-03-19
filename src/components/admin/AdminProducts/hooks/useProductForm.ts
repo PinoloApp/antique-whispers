@@ -105,7 +105,7 @@ export const useProductForm = (language: "en" | "sr", allProducts: Product[], al
         const allFields = [
             "nameSr",
             "nameEn",
-            "currentBid",
+            "startingPrice",
             "images",
             "subtitleSr",
             "subtitleEn",
@@ -120,7 +120,7 @@ export const useProductForm = (language: "en" | "sr", allProducts: Product[], al
         setFormTouched((prev) => ({ ...prev, ...allTouched }));
 
         // Required: name SR/EN, starting price
-        if (!formData.namesr.trim() || !formData.name.trim() || !formData.currentBid.trim()) return;
+        if (!formData.namesr.trim() || !formData.name.trim() || !formData.startingPrice.trim()) return;
 
 
         // Paired optional: if one language filled, other is required

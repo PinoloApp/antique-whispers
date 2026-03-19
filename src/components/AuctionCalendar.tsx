@@ -30,6 +30,14 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Get auction dates for highlighting
   const auctionDates = auctions.map((a) => a.date);
@@ -92,8 +100,9 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
 
   return (
     <Collapsible
-      open={isOpen}
+      open={isDesktop ? true : isOpen}
       onOpenChange={(open) => {
+        if (isDesktop) return;
         setIsOpen(open);
         if (!open) {
           // Reset selected date when closing
@@ -113,7 +122,7 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
       className="flex flex-col items-center"
     >
       <CollapsibleTrigger asChild>
-        <div className="inline-flex items-center gap-2 bg-card px-4 py-2 rounded-full shadow-soft mb-8 animate-fade-in border border-border cursor-pointer hover:bg-muted/50 transition-colors">
+        <div className="lg:hidden inline-flex items-center gap-2 bg-card px-4 py-2 rounded-full shadow-soft mb-8 animate-fade-in border border-border cursor-pointer hover:bg-muted/50 transition-colors">
           <CalendarDays className="w-4 h-4 text-gold" />
           <span className="text-sm font-medium text-foreground">
             {language === "en" ? "Auction Calendar" : "Kalendar Aukcija"}
@@ -123,10 +132,10 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
           />
         </div>
       </CollapsibleTrigger>
-      <CollapsibleContent className="overflow-hidden data-[state=open]:animate-slide-down">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto pt-4 pb-20">
+      <CollapsibleContent className="overflow-hidden data-[state=open]:animate-slide-down w-full">
+        <div className="flex flex-col lg:flex-row gap-6 max-w-[90vw] xl:max-w-none mx-auto pt-4 pb-8 items-center lg:items-start justify-center lg:justify-end">
           {/* Calendar */}
-          <div className="bg-card rounded-xl p-6 shadow-card border border-border flex flex-col items-center min-w-[320px] w-[320px] lg:w-auto lg:min-w-[350px]">
+          <div className="bg-card rounded-xl p-6 shadow-card border border-border flex flex-col items-center flex-shrink-0 w-full min-w-[320px] max-w-[350px]">
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -187,7 +196,7 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
           </div>
 
           {/* Auction List & Details */}
-          <div className="w-[320px] lg:w-[400px] flex flex-col">
+          <div className="w-full lg:flex-1 lg:max-w-[60vw] flex flex-col overflow-hidden">
             {/* Selected date indicator */}
             {selectedDate && (
               <div className="flex items-center justify-between mb-4 px-3 py-2 bg-muted/50 rounded-lg border border-border/50">
@@ -215,9 +224,9 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
             )}
 
             {/* Auction Cards Container */}
-            <div className="space-y-4 flex-1">
+            <div className="flex flex-col lg:flex-row gap-4 overflow-x-auto pb-4 snap-x items-start">
               {auctions.length === 0 ? (
-                <div className="text-left py-8 text-muted-foreground flex flex-col gap-4 text-sm leading-relaxed text-left bg-muted/20 p-6 rounded-lg border border-border/50">
+                <div className="text-left py-8 text-muted-foreground flex flex-col gap-4 text-sm leading-relaxed bg-muted/20 p-6 rounded-lg border border-border/50 max-w-2xl">
                   <p>
                     {language === "en"
                       ? "Auctions are held twice a year. Internet auctions last from April 1st to the last week of June and from October 1st to the last week of December."
@@ -235,7 +244,7 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
                   </p>
                 </div>
               ) : paginatedAuctions.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="w-full lg:w-[320px] flex-shrink-0 snap-center min-h-[120px] p-4 flex items-center justify-center text-center text-muted-foreground opacity-70 bg-transparent border-transparent">
                   {language === "en" ? "No auctions on this date" : "Nema aukcija na ovaj datum"}
                 </div>
               ) : (
@@ -245,10 +254,15 @@ const AuctionCalendar = ({ auctions, selectedAuctionId, onSelectAuction }: Aucti
                     onClick={() => {
                       onSelectAuction(auction.id);
                       setIsOpen(false);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
+                      const heroSection = document.getElementById("hero-section");
+                      if (heroSection) {
+                        heroSection.scrollIntoView({ behavior: "smooth" });
+                      } else {
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }
                     }}
                     className={cn(
-                      "w-full min-h-[120px] p-4 rounded-lg border transition-all duration-300 text-left",
+                      "w-full lg:w-[320px] flex-shrink-0 snap-center min-h-[120px] p-4 rounded-lg border transition-all duration-300 text-left",
                       selectedAuctionId === auction.id
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-card border-border hover:border-primary/50",

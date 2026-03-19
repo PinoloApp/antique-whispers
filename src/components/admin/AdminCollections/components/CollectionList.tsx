@@ -1,7 +1,7 @@
 import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, MoreHorizontal } from "lucide-react";
+import { Pencil, Trash2, MoreHorizontal, ChevronDown, ChevronRight } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -98,101 +98,152 @@ export const CollectionList: React.FC<CollectionListProps> = ({
         <>
             {/* Mobile Card View */}
             <div className="md:hidden space-y-3">
-                {paginatedCollections.map((collection) => (
+                {paginatedCollections.length > 0 && (
+                    <div className="flex items-center gap-2 px-1 pb-2">
+                        <Checkbox
+                            checked={paginatedCollections.every((c) => selectedCollections.includes(c.id))}
+                            onCheckedChange={toggleSelectAll}
+                            id="mobile-select-all"
+                        />
+                        <label
+                            htmlFor="mobile-select-all"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            {language === "en" ? "Select All" : "Izaberi sve"}
+                        </label>
+                    </div>
+                )}
+                {paginatedCollections.map((collection) => {
+                    const isExpanded = expandedCollections.includes(collection.id);
+                    const collectionProducts = collection.productIds.map((pid) => products.find((p) => p.id === pid));
+                    return (
                     <div key={collection.id} className={`bg-card border border-border rounded-lg p-4 space-y-3 ${selectedCollections.includes(collection.id) ? "ring-2 ring-primary" : ""}`}>
-                        <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
                                 <Checkbox
                                     checked={selectedCollections.includes(collection.id)}
                                     onCheckedChange={() => toggleSelectCollection(collection.id)}
-                                    className="mt-1 shrink-0"
                                 />
-                                <div className="min-w-0">
-                                    <p className="font-medium text-foreground truncate">{collection.name[language]}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => handleEdit(collection)}>
-                                            <Pencil className="w-4 h-4 mr-2" />
-                                            {language === "en" ? "Edit" : "Izmeni"}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            className="text-destructive focus:text-destructive"
-                                            onClick={() => handleDeleteClick(collection.id)}
-                                        >
-                                            <Trash2 className="w-4 h-4 mr-2" />
-                                            {language === "en" ? "Delete" : "Obriši"}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                {collection.image && (
+                                    <img
+                                        src={collection.image}
+                                        alt={collection.name[language]}
+                                        className="w-16 h-16 rounded object-cover shrink-0"
+                                    />
+                                )}
+                                <button
+                                    className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity font-medium min-w-0"
+                                    onClick={() => toggleExpandCollection(collection.id)}
+                                >
+                                    {isExpanded ? (
+                                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                                    ) : (
+                                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                                    )}
+                                    <div className="font-medium text-foreground truncate">{collection.name[language]}</div>
+                                </button>
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div className="col-span-2">
-                                <span className="text-muted-foreground text-xs block mb-1">{language === "en" ? "Status:" : "Status:"}</span>{" "}
-                                {(() => {
-                                    const isLocked = isAuctionActiveOrUpcoming(collection.auctionId, auctions);
-                                    return (
-                                        <Select
-                                            value={collection.status}
-                                            onValueChange={(value) => onStatusChange(collection, value as CollectionStatus)}
-                                        >
-                                            <SelectTrigger
-                                                className={`w-full h-8 text-xs ${collection.status === "available"
-                                                    ? "bg-green-500/20 text-green-600 border-green-500/30"
-                                                    : collection.status === "sold"
-                                                        ? "bg-red-500/20 text-red-600 border-red-500/30"
-                                                        : collection.status === "withdrawn"
-                                                            ? "bg-blue-500/20 text-blue-600 border-blue-500/30"
-                                                            : "bg-yellow-500/20 text-yellow-600 border-yellow-500/30"
-                                                    }`}
-                                            >
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {statusOptions.map((opt) => (
-                                                    <SelectItem
-                                                        key={opt.value}
-                                                        value={opt.value}
-                                                        disabled={
-                                                            opt.value === "on_auction" ||
-                                                            (isLocked && opt.value !== "withdrawn" && opt.value !== collection.status)
-                                                        }
-                                                    >
-                                                        {language === "en" ? opt.labelEn : opt.labelSr}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    );
-                                })()}
-                            </div>
                             <div>
                                 <span className="text-muted-foreground">{language === "en" ? "Starting:" : "Početna:"}</span>{" "}
                                 <span className="font-medium text-foreground">€{collection.startingPrice.toLocaleString()}</span>
                             </div>
-                            <div>
+                            <div className="col-span-2">
                                 <span className="text-muted-foreground">{language === "en" ? "Category:" : "Kategorija:"}</span>{" "}
                                 <span className="font-medium">{(() => { const cat = categories.find((c) => c.id === collection.category); return cat ? cat.title[language] : "-"; })()}</span>
                             </div>
-                            <div>
+                            <div className="col-span-2">
                                 <span className="text-muted-foreground">{language === "en" ? "Lots:" : "Lotovi:"}</span>{" "}
                                 <span className="font-medium">{collection.productIds.length}</span>
                             </div>
-                            <div>
-                                <span className="text-muted-foreground">{language === "en" ? "Auction:" : "Aukcija:"}</span>{" "}
-                                <span className="font-medium">{getAuctionName(collection.auctionId)}</span>
-                            </div>
                         </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-border">
+                            {(() => {
+                                const isLocked = isAuctionActiveOrUpcoming(collection.auctionId, auctions);
+                                return (
+                                    <Select
+                                        value={collection.status}
+                                        onValueChange={(value) => onStatusChange(collection, value as CollectionStatus)}
+                                    >
+                                        <SelectTrigger
+                                            className={`w-[140px] h-8 text-xs ${collection.status === "available"
+                                                ? "bg-green-500/20 text-green-600 border-green-500/30"
+                                                : collection.status === "sold"
+                                                    ? "bg-red-500/20 text-red-600 border-red-500/30"
+                                                    : collection.status === "withdrawn"
+                                                        ? "bg-blue-500/20 text-blue-600 border-blue-500/30"
+                                                        : "bg-yellow-500/20 text-yellow-600 border-yellow-500/30"
+                                                }`}
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {statusOptions.map((opt) => (
+                                                <SelectItem
+                                                    key={opt.value}
+                                                    value={opt.value}
+                                                    disabled={
+                                                        opt.value === "on_auction" ||
+                                                        (isLocked && opt.value !== "withdrawn" && opt.value !== collection.status)
+                                                    }
+                                                >
+                                                    {language === "en" ? opt.labelEn : opt.labelSr}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                );
+                            })()}
+                            
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <MoreHorizontal className="w-4 h-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleEdit(collection)}>
+                                        <Pencil className="w-4 h-4 mr-2" />
+                                        {language === "en" ? "Edit" : "Izmeni"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => handleDeleteClick(collection.id)}
+                                        className="text-destructive focus:text-destructive"
+                                    >
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        {language === "en" ? "Delete" : "Obriši"}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                        {isExpanded && (
+                            <div className="mt-3 pt-3 border-t border-border">
+                                {collectionProducts.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground text-center py-2">
+                                        {language === "en" ? "No lots in this collection" : "Nema lotova u ovoj kolekciji"}
+                                    </p>
+                                ) : (
+                                    <div className="space-y-1 mt-2">
+                                        {collectionProducts.map((product) => product && (
+                                            <div key={product.id} className="flex items-center justify-between px-2 py-2 rounded bg-muted/20">
+                                                <div className="flex items-center gap-3">
+                                                    {product.image && (
+                                                        <img src={product.image} alt={language === "en" ? product.name : product.namesr} className="w-8 h-8 rounded object-cover" />
+                                                    )}
+                                                    <div>
+                                                        <span className="text-sm font-medium">{language === "en" ? product.name : product.namesr}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
-                ))}
+                )})}
             </div>
 
             {/* Desktop Table View */}

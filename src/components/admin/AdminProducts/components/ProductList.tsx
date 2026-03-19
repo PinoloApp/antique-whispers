@@ -1,4 +1,5 @@
 import React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Product, Category, ProductStatus, Auction } from "@/contexts/DataContext";
 import { useServerPaginatedProducts } from "../hooks/useServerPaginatedProducts";
 import { useProductBulkActions } from "../hooks/useProductBulkActions";
@@ -88,6 +89,21 @@ export const ProductList: React.FC<ProductListProps> = ({
     return (
         <>
             <div className="md:hidden space-y-4">
+                {displayProducts.length > 0 && (
+                    <div className="flex items-center gap-2 px-1 pb-2">
+                        <Checkbox
+                            checked={isAllSelected}
+                            onCheckedChange={toggleSelectAll}
+                            id="mobile-select-all"
+                        />
+                        <label
+                            htmlFor="mobile-select-all"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            {language === "en" ? "Select All" : "Izaberi sve"}
+                        </label>
+                    </div>
+                )}
                 {displayProducts.map((product) => (
                     <ProductMobileCard
                         key={product.id}

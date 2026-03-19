@@ -1,4 +1,5 @@
 import React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Category, Product, Collection } from "@/contexts/DataContext";
 import { useServerPaginatedCategories } from "../hooks/useServerPaginatedCategories";
 import { useCategoryBulkActions } from "../hooks/useCategoryBulkActions";
@@ -117,6 +118,21 @@ export const CategoryList: React.FC<CategoryListProps> = ({
     return (
         <>
             <div className="md:hidden space-y-4">
+                {paginatedCategories.length > 0 && (
+                    <div className="flex items-center gap-2 px-1 pb-2">
+                        <Checkbox
+                            checked={isAllSelected}
+                            onCheckedChange={handleSelectAllChange}
+                            id="mobile-select-all"
+                        />
+                        <label
+                            htmlFor="mobile-select-all"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            {language === "en" ? "Select All" : "Izaberi sve"}
+                        </label>
+                    </div>
+                )}
                 {paginatedCategories.map((category) => {
                     const hasMatchingSubcategory = getHasMatchingSubcategory(category);
                     const isSelected = category.isActive
